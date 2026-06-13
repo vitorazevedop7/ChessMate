@@ -77,7 +77,7 @@
   > 💻 **Descrição:** Instância de demonstração hospedada na AWS EC2 com domínio customizado.
 * 📖 **Documentação da API:** [Swagger UI](https://chessmate.vitorazevedo.dev/swagger-ui.html)
   > 📚 **Descrição:** Documentação interativa dos endpoints REST gerada pelo SpringDoc OpenAPI.
-* 📐 **Diagramas PlantUML:** [docs/diagramas.md](./docs/diagramas.md)
+* 📐 **Diagramas PlantUML:** [docs/diagramas/diagramas.md](./docs/diagramas/diagramas.md)
   > 🗂️ **Descrição:** Todos os diagramas UML do projeto organizados em Markdown.
 
 ---
@@ -161,16 +161,16 @@ O ChessMate adota uma **arquitetura em camadas** (Layered Architecture) no back-
 
 ### Exemplos de diagramas
 
-Para melhor visualização da estrutura do sistema, os diagramas estão organizados abaixo. Os arquivos PNG exportados do PlantUML estão em `/diagramas/`.
+Para melhor visualização da estrutura do sistema, os diagramas estão organizados abaixo. Os arquivos PNG exportados do PlantUML estão em `/docs/diagramas/`.
 
 | Diagrama de Arquitetura | Detalhe da Arquitetura |
 | :---: | :---: |
 | **Visão Geral (Macro)** | **Camada de Serviço** |
-| <img src="./diagramas/diagrama-arquitetura-geral.png" alt="Diagrama de Visão Geral do Sistema" width="300px"> | <img src="./diagramas/diagrama-camada-servico.png" alt="Diagrama de Componentes da Camada de Serviço" width="300px"> |
+| <img src="./docs/diagramas/diagrama-arquitetura-geral.png" alt="Diagrama de Visão Geral do Sistema" width="300px"> | <img src="./docs/diagramas/diagrama-camada-servico.png" alt="Diagrama de Componentes da Camada de Serviço" width="300px"> |
 | **Modelo de Dados (DER)** | **Fluxo de Autenticação** |
-| <img src="./diagramas/diagrama-entidade-relacionamento.png" alt="Diagrama de Entidade-Relacionamento" width="300px"> | <img src="./diagramas/diagrama-sequencia-login.png" alt="Diagrama de Sequência de Login" width="300px"> |
+| <img src="./docs/diagramas/diagrama-entidade-relacionamento.png" alt="Diagrama de Entidade-Relacionamento" width="300px"> | <img src="./docs/diagramas/diagrama-sequencia-login.png" alt="Diagrama de Sequência de Login" width="300px"> |
 | **Infraestrutura AWS** | **Fluxo de Partida (WebSocket)** |
-| <img src="./diagramas/diagrama-infraestrutura-aws.png" alt="Diagrama de Deploy na AWS" width="300px"> | <img src="./diagramas/diagrama-sequencia-partida.png" alt="Diagrama de Sequência da Partida" width="300px"> |
+| <img src="./docs/diagramas/diagrama-infraestrutura-aws.png" alt="Diagrama de Deploy na AWS" width="300px"> | <img src="./docs/diagramas/diagrama-sequencia-partida.png" alt="Diagrama de Sequência da Partida" width="300px"> |
 
 ---
 
@@ -373,15 +373,14 @@ ChessMate/
 ├── docker-compose.yml           # 🐳 Orquestra backend + frontend + PostgreSQL.
 │
 ├── /docs                        # 📚 Documentação técnica e diagramas
-│   └── diagramas.md             # 📐 Índice dos diagramas PlantUML.
-│
-├── /diagramas                   # 🖼️ PNGs exportados do PlantUML
-│   ├── diagrama-arquitetura-geral.png
-│   ├── diagrama-camada-servico.png
-│   ├── diagrama-entidade-relacionamento.png
-│   ├── diagrama-sequencia-login.png
-│   ├── diagrama-sequencia-partida.png
-│   └── diagrama-infraestrutura-aws.png
+│   └── /diagramas               # 🖼️ PNGs exportados do PlantUML
+│       ├── diagramas.md         # 📐 Índice dos diagramas PlantUML.
+│       ├── diagrama-arquitetura-geral.png
+│       ├── diagrama-camada-servico.png
+│       ├── diagrama-entidade-relacionamento.png
+│       ├── diagrama-sequencia-login.png
+│       ├── diagrama-sequencia-partida.png
+│       └── diagrama-infraestrutura-aws.png
 │
 ├── /frontend                    # 📁 Aplicação React
 │   ├── .env.example             # 🧩 Variáveis de ambiente do front-end.
@@ -411,16 +410,16 @@ ChessMate/
 ## 🎥 Demonstração
 
 > [!WARNING]
-> As imagens abaixo serão adicionadas ao repositório após a conclusão dos diagramas e wireframes. Todos os arquivos PNG ficarão em `/diagramas/`.
+> As imagens abaixo serão adicionadas ao repositório após a conclusão dos diagramas e wireframes. Todos os arquivos PNG ficarão em `/docs/diagramas/`.
 
 ### 🌐 Aplicação Web
 
 | Tela | Captura de Tela |
 | :---: | :---: |
 | **Página Inicial (Home)** | **Tela de Login** |
-| <img src="./diagramas/tela-home.png" alt="Tela Inicial do ChessMate" width="300px"> | <img src="./diagramas/tela-login.png" alt="Tela de Login" width="300px"> |
+| <img src="./docs/diagramas/tela-home.png" alt="Tela Inicial do ChessMate" width="300px"> | <img src="./docs/diagramas/tela-login.png" alt="Tela de Login" width="300px"> |
 | **Tabuleiro (Partida em Andamento)** | **Dashboard do Jogador** |
-| <img src="./diagramas/tela-partida.png" alt="Tabuleiro de Xadrez" width="300px"> | <img src="./diagramas/tela-dashboard.png" alt="Dashboard do Jogador" width="300px"> |
+| <img src="./docs/diagramas/tela-partida.png" alt="Tabuleiro de Xadrez" width="300px"> | <img src="./docs/diagramas/tela-dashboard.png" alt="Dashboard do Jogador" width="300px"> |
 
 ### 💻 Exemplo de Saída no Terminal (Back-end / API)
 
@@ -508,7 +507,7 @@ npm run test:e2e
 * 📖 **Segurança:** [Spring Security Reference](https://docs.spring.io/spring-security/reference/)
 * 📖 **Migração:** [Documentação do Flyway](https://documentation.red-gate.com/flyway)
 * 📖 **Padrão de Commits:** [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
-* 📐 **Diagramas:** [docs/diagramas.md](./docs/diagramas.md)
+* 📐 **Diagramas:** [docs/diagramas/diagramas.md](./docs/diagramas/diagramas.md)
 
 ---
 
