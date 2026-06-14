@@ -496,45 +496,143 @@ serve -s frontend/dist
 
 ## 📂 Estrutura de Pastas
 
+> [!NOTE]
+> A árvore abaixo combina a **estrutura real versionada neste repositório** (documentação e diagramas UML) com a **estrutura-alvo fictícia/planejada** descrita neste README para a aplicação completa (front-end React, back-end Spring Boot, Docker, CI/CD e testes).
+
 ```
 ChessMate/
+├── .editorconfig                     # ✍️ Padronização de estilo de código (planejado).
+├── .env.local                        # 🔒 Variáveis sensíveis locais (não versionado; exemplo fictício).
+├── .env.test                         # 🧪 Variáveis para testes automatizados (planejado).
+├── .env.staging                      # ☁️ Variáveis para homologação/staging (planejado).
+├── .env.example                      # 🧩 Exemplo de variáveis necessárias, sem dados sensíveis (planejado).
 ├── .gitignore                        # 🧹 Ignora arquivos não versionados.
-├── LICENSE                           # ⚖️ Licença MIT.
+├── .vscode/                          # ⚙️ Configurações opcionais da IDE (planejado).
+│   ├── extensions.json               # 🧩 Extensões recomendadas.
+│   └── settings.json                 # 🔧 Preferências locais do workspace.
+├── .github/                          # 🤖 CI/CD, issues e pull requests (planejado).
+│   ├── workflows/
+│   │   ├── ci.yml                    # ✅ Pipeline de build, lint e testes.
+│   │   └── deploy.yml                # 🚀 Pipeline de deploy em staging/produção.
+│   ├── ISSUE_TEMPLATE/
+│   └── pull_request_template.md
 ├── README.md                         # 📘 Documentação principal do projeto.
+├── CONTRIBUTING.md                   # 🤝 Guia de contribuição (planejado).
+├── LICENSE                           # ⚖️ Licença MIT.
 ├── Documentacao_de_Projeto_ChessMate.docx  # 📄 Documento acadêmico completo.
+├── docker-compose.yml                # 🐳 Orquestração local de front/back/db/cache (planejado).
+├── docker-compose.override.yml       # 🐳 Sobrescritas para desenvolvimento local (planejado).
 │
-└── diagramas/                        # 📐 Todos os diagramas UML do projeto
+├── frontend/                         # 🌐 Aplicação React 19 + Vite + TypeScript (planejado).
+│   ├── .env.example                  # 🧩 Variáveis VITE_API_URL e VITE_WS_URL.
+│   ├── Dockerfile                    # 🐳 Build do front-end.
+│   ├── .eslintrc.js                  # ✨ Regras do ESLint.
+│   ├── .prettierrc                   # 🎨 Configuração do Prettier.
+│   ├── index.html                    # 🧭 Entrada HTML do Vite.
+│   ├── public/                       # 📂 Arquivos estáticos.
+│   │   ├── favicon.svg               # ♟️ Ícone da aplicação.
+│   │   └── robots.txt
+│   ├── src/                          # 📂 Código-fonte React.
+│   │   ├── assets/                   # 🖼️ Recursos estáticos importados.
+│   │   │   ├── fonts/                # ✒️ Fontes personalizadas.
+│   │   │   ├── icons/                # 💡 Ícones.
+│   │   │   └── images/               # 🖼️ Imagens.
+│   │   ├── components/               # 🧱 Componentes reutilizáveis de UI.
+│   │   │   ├── board/                # ♟️ Tabuleiro e peças.
+│   │   │   ├── layout/               # 🧭 Header, sidebar e shell da aplicação.
+│   │   │   └── ui/                   # 🎛️ Botões, cards, dialogs e inputs.
+│   │   ├── hooks/                    # 🎣 Hooks personalizados.
+│   │   ├── pages/                    # 📄 Páginas e rotas.
+│   │   │   ├── Auth/                 # 🔐 Login, cadastro e recuperação de senha.
+│   │   │   ├── Game/                 # ⚡ Sala de partida em tempo real.
+│   │   │   ├── Ranking/              # 📊 Ranking Elo.
+│   │   │   └── Profile/              # 👤 Perfil e histórico.
+│   │   ├── services/                 # 🔌 Clientes REST e WebSocket/STOMP.
+│   │   ├── stores/                   # 🧠 Estado global com Zustand.
+│   │   ├── styles/                   # 🎨 Tailwind, tema e estilos globais.
+│   │   ├── types/                    # 🧾 Tipos TypeScript.
+│   │   └── utils/                    # 🛠️ Funções utilitárias.
+│   ├── package.json                  # 📦 Dependências e scripts.
+│   └── package-lock.json             # 🔒 Lockfile das dependências.
+│
+├── backend/                          # ☕ Aplicação Spring Boot 3 + Java 17 (planejado).
+│   ├── .env.example                  # 🧩 Variáveis do back-end.
+│   ├── Dockerfile                    # 🐳 Build do back-end.
+│   ├── pom.xml                       # 🛠️ Build Maven e dependências.
+│   ├── src/main/java/                # 📂 Código-fonte Java.
+│   │   └── br/pucminas/chessmate/
+│   │       ├── ChessMateApplication.java  # 🚀 Classe principal Spring Boot.
+│   │       ├── config/               # 🔧 CORS, Swagger, Redis, SQS e WebSocket.
+│   │       ├── controller/           # 🎮 Endpoints REST.
+│   │       ├── service/              # ⚙️ Regras de negócio.
+│   │       ├── repository/           # 🗄️ Repositórios JPA/Hibernate.
+│   │       ├── model/                # 🧬 Entidades persistentes.
+│   │       ├── domain/               # 🌐 Objetos e regras de domínio.
+│   │       ├── dto/                  # ✉️ Data Transfer Objects.
+│   │       ├── security/             # 🛡️ JWT e Spring Security.
+│   │       ├── websocket/            # 📡 STOMP/SockJS para partidas.
+│   │       ├── integration/          # 🔗 SendGrid, Stockfish, SQS e serviços externos.
+│   │       ├── batch/                # 🤖 Jobs assíncronos de análise Stockfish.
+│   │       └── exception/            # 💥 Exceptions e handlers globais.
+│   ├── src/main/resources/           # 📂 Recursos do Spring Boot.
+│   │   ├── application.yml           # ⚙️ Configuração principal.
+│   │   ├── application-dev.yml       # 🧪 Ambiente de desenvolvimento.
+│   │   ├── application-prod.yml      # 🚀 Ambiente de produção.
+│   │   ├── application-test.yml      # 🧪 Ambiente de testes.
+│   │   ├── static/                   # 🌐 Arquivos estáticos opcionais.
+│   │   ├── templates/                # 🖼️ Templates de e-mail.
+│   │   ├── messages/                 # 🌎 Internacionalização.
+│   │   └── db/migration/             # 📜 Migrações Flyway.
+│   └── src/test/java/                # 🧪 Testes unitários e de integração.
+│
+├── scripts/                          # 📜 Scripts de automação (planejado).
+│   ├── dev.sh                        # 🚀 Sobe ambiente completo de desenvolvimento.
+│   ├── build_all.sh                  # 🛠️ Build geral de front-end e back-end.
+│   ├── generate_diagrams.sh          # 📐 Regenera PNGs a partir dos PUML.
+│   └── deploy.sh                     # ☁️ Deploy em homologação/produção.
+│
+├── docs/                             # 📚 Documentação técnica complementar (planejado).
+│   ├── api/                          # 📖 OpenAPI/Swagger exportado.
+│   ├── arquitetura/                  # 🏗️ Decisões arquiteturais e ADRs.
+│   ├── requisitos/                   # 📋 Casos de uso, regras e requisitos.
+│   └── banco-de-dados/               # 🗄️ Modelo físico, seeds e dicionário de dados.
+│
+├── tests/                            # 🧪 Testes End-to-End (planejado).
+│   ├── cypress/                      # 🌐 Testes E2E do fluxo web.
+│   └── postman/                      # 🔌 Coleções para testes da API.
+│
+└── diagramas/                        # 📐 Todos os diagramas UML reais do projeto.
     ├── diagramas.md                  # 📋 Índice com convenção de pastas e tabela de diagramas.
     │
-    ├── arquitetura/                  # 🏗️ Diagramas de arquitetura (C4, Componentes)
-    │   ├── codigo/                   # 📝 Arquivos fonte .puml
-    │   └── imagem/                   # 🖼️ Imagens geradas .png
+    ├── arquitetura/                  # 🏗️ Diagramas de arquitetura (C4, Componentes).
+    │   ├── codigo/                   # 📝 Arquivos fonte .puml.
+    │   └── imagem/                   # 🖼️ Imagens geradas .png.
     │
-    ├── caso-de-uso/                  # 👤 Diagrama de Casos de Uso
+    ├── caso-de-uso/                  # 👤 Diagrama de Casos de Uso.
     │   ├── codigo/
     │   └── imagem/
     │
-    ├── diagrama-de-classes/          # 🧬 Diagrama de Classes
+    ├── diagrama-de-classes/          # 🧬 Diagrama de Classes.
     │   ├── codigo/
     │   └── imagem/
     │
-    ├── diagrama-er/                  # 🗄️ Modelo de Dados (ER)
+    ├── diagrama-er/                  # 🗄️ Modelo de Dados (ER).
     │   ├── codigo/
     │   └── imagem/
     │
-    ├── diagramas-de-comunicacao/     # 🔄 Diagramas de Comunicação (COM)
+    ├── diagramas-de-comunicacao/     # 🔄 Diagramas de Comunicação (COM).
     │   ├── codigo/
     │   └── imagem/
     │
-    ├── diagramas-de-estados/         # 🔁 Diagramas de Estados (EST)
+    ├── diagramas-de-estados/         # 🔁 Diagramas de Estados (EST).
     │   ├── codigo/
     │   └── imagem/
     │
-    ├── diagramas-de-sequencia/       # ↔️ Diagramas de Sequência Detalhados (SEQ)
+    ├── diagramas-de-sequencia/       # ↔️ Diagramas de Sequência Detalhados (SEQ).
     │   ├── codigo/
     │   └── imagem/
     │
-    └── dss/                          # 📦 Diagramas de Sequência do Sistema — visão caixa preta (DSS)
+    └── dss/                          # 📦 Diagramas de Sequência do Sistema — visão caixa preta (DSS).
         ├── codigo/
         └── imagem/
 ```
