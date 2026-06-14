@@ -1,0 +1,61 @@
+@startuml DSS-UC14-adicionar-amigo
+title DSS - UC-14: Adicionar Amigo\nChessMate - Plataforma de Xadrez Online (Visão de Sistema)
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #2C3E50
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #D5E8D4
+  LifeLineBorderColor #2980B9
+  LifeLineBackgroundColor #EBF5FB
+  ParticipantBorderColor #2980B9
+  ParticipantBackgroundColor #EBF5FB
+  BoxBackgroundColor #F2F3F4
+  BoxBorderColor #BDC3C7
+}
+
+note over Sistema
+  <<Sistema>>
+  ChessMate
+  (caixa preta)
+end note
+
+actor "Jogador" as U
+actor "Destinatário" as D
+participant "Sistema\nChessMate" as Sistema
+
+U -> Sistema : buscarJogador(nome)
+activate Sistema
+Sistema --> U : exibirResultados(listaJogadores)
+deactivate Sistema
+
+U -> Sistema : enviarSolicitacaoAmizade(destinatarioId)
+activate Sistema
+
+alt Solicitação enviada com sucesso
+  Sistema --> U : solicitacaoEnviada(\n  "Solicitação enviada!")
+  Sistema ->> D : notificarSolicitacao(\n  "Você recebeu uma solicitação de amizade!")
+else Já são amigos
+  Sistema --> U : notificarErro(\n  "Vocês já são amigos.")
+else Solicitação já pendente
+  Sistema --> U : notificarErro(\n  "Solicitação já enviada anteriormente.")
+end
+deactivate Sistema
+
+== Resposta à Solicitação ==
+
+D -> Sistema : responderSolicitacao(solicitacaoId, ACEITAR)
+activate Sistema
+
+alt Solicitação aceita
+  Sistema --> D : amizadeConfirmada("Vocês agora são amigos!")
+  Sistema ->> U : notificarAceite(\n  "Sua solicitação foi aceita!")
+else Solicitação recusada
+  Sistema --> D : solicitacaoRecusada()
+  Sistema ->> U : notificarRecusa(\n  "Sua solicitação foi recusada.")
+end
+deactivate Sistema
+
+@enduml

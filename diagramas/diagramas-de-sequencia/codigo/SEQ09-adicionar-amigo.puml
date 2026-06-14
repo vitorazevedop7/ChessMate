@@ -1,0 +1,124 @@
+@startuml SEQ09-adicionar-amigo
+title UC-14: Adicionar Amigo\nChessMate - Plataforma de Xadrez Online
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #2C3E50
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #D5E8D4
+  LifeLineBorderColor #2980B9
+  LifeLineBackgroundColor #EBF5FB
+  ParticipantBorderColor #2980B9
+  ParticipantBackgroundColor #EBF5FB
+  BoxBackgroundColor #F2F3F4
+  BoxBorderColor #BDC3C7
+}
+
+actor "Jogador" as Jogador
+actor "Destinatário" as Dest
+participant "Interface\nWeb" as UI
+participant "SocialController" as SocialCtrl
+participant "AmizadeService" as AmizadeSvc
+participant "UsuarioRepository" as UsuarioRepo
+participant "AmizadeRepository" as AmizadeRepo
+database "Banco de Dados" as BD
+participant "WebSocketService" as WSSvc
+
+== Solicitação de Amizade ==
+
+Jogador -> UI : clicarAdicionarAmigo(destinatarioId)
+activate UI
+
+UI -> SocialCtrl : POST /api/amizades\n{ destinatarioId }
+activate SocialCtrl
+
+SocialCtrl -> AmizadeSvc : solicitarAmizade(\n  solicitanteId, destinatarioId)
+activate AmizadeSvc
+
+AmizadeSvc -> UsuarioRepo : buscarUsuario(destinatarioId)
+activate UsuarioRepo
+UsuarioRepo -> BD : SELECT * FROM usuarios\nWHERE id = ?
+activate BD
+BD --> UsuarioRepo : usuarioEncontrado
+deactivate BD
+UsuarioRepo --> AmizadeSvc : destinatario
+deactivate UsuarioRepo
+
+AmizadeSvc -> AmizadeRepo : verificarAmizadeExistente(\n  solicitanteId, destinatarioId)
+activate AmizadeRepo
+AmizadeRepo -> BD : SELECT * FROM amizades\nWHERE (solicitante_id = ?\nAND receptor_id = ?)
+activate BD
+BD --> AmizadeRepo : semAmizade
+deactivate BD
+AmizadeRepo --> AmizadeSvc : naoExiste
+deactivate AmizadeRepo
+
+AmizadeSvc -> AmizadeRepo : salvarSolicitacao(amizade)
+activate AmizadeRepo
+AmizadeRepo -> BD : INSERT INTO amizades\n(solicitante_id, receptor_id,\nstatus, data_criacao)
+activate BD
+BD --> AmizadeRepo : amizadeSalva(amizadeId)
+deactivate BD
+AmizadeRepo --> AmizadeSvc : solicitacaoCriada
+deactivate AmizadeRepo
+
+AmizadeSvc ->> WSSvc : notificarSolicitacao(\n  destinatarioId, solicitanteId)
+activate WSSvc
+note right of WSSvc : Notifica destinatário\nassincronamente
+WSSvc --> AmizadeSvc : notificado
+deactivate WSSvc
+
+AmizadeSvc --> SocialCtrl : solicitacaoEnviada
+deactivate AmizadeSvc
+
+SocialCtrl --> UI : HTTP 201 Created\n{ amizadeId, status: "PENDENTE" }
+deactivate SocialCtrl
+
+UI --> Jogador : exibirMensagem(\n  "Solicitação enviada!")
+deactivate UI
+
+== Resposta à Solicitação ==
+
+WSSvc -> UI : eventoSolicitacaoAmizade(\n  solicitante, amizadeId)
+activate UI
+UI --> Dest : exibirSolicitacao(\n  "Jogador quer ser seu amigo!")
+
+Dest -> UI : aceitarSolicitacao(amizadeId)
+
+UI -> SocialCtrl : PUT /api/amizades/{id}/aceitar
+activate SocialCtrl
+
+SocialCtrl -> AmizadeSvc : aceitarAmizade(amizadeId, receptorId)
+activate AmizadeSvc
+
+AmizadeSvc -> AmizadeRepo : atualizarStatus(\n  amizadeId, ACEITA)
+activate AmizadeRepo
+AmizadeRepo -> BD : UPDATE amizades\nSET status = 'ACEITA',\ndata_atualizacao = NOW()\nWHERE id = ?
+activate BD
+BD --> AmizadeRepo : atualizado
+deactivate BD
+AmizadeRepo --> AmizadeSvc : statusAtualizado
+deactivate AmizadeRepo
+
+AmizadeSvc ->> WSSvc : notificarAmizadeAceita(\n  solicitanteId)
+activate WSSvc
+WSSvc --> AmizadeSvc : notificado
+deactivate WSSvc
+
+AmizadeSvc --> SocialCtrl : amizadeConfirmada
+deactivate AmizadeSvc
+
+SocialCtrl --> UI : HTTP 200 OK\n{ status: "ACEITA" }
+deactivate SocialCtrl
+
+UI --> Dest : exibirMensagem("Vocês agora são amigos!")
+deactivate UI
+
+WSSvc -> UI : eventoAmizadeAceita(destinatario)
+activate UI
+UI --> Jogador : exibirMensagem(\n  "Solicitação aceita!")
+deactivate UI
+
+@enduml

@@ -1,0 +1,80 @@
+@startuml SEQ05-autenticar
+title UC-02: Autenticar (Login)\nChessMate - Plataforma de Xadrez Online
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #2C3E50
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #D5E8D4
+  LifeLineBorderColor #2980B9
+  LifeLineBackgroundColor #EBF5FB
+  ParticipantBorderColor #2980B9
+  ParticipantBackgroundColor #EBF5FB
+  BoxBackgroundColor #F2F3F4
+  BoxBorderColor #BDC3C7
+}
+
+actor "Jogador" as Jogador
+participant "Interface\nWeb" as UI
+participant "AuthController" as AuthCtrl
+participant "AuthService" as AuthSvc
+participant "UsuarioRepository" as UsuarioRepo
+database "Banco de Dados" as BD
+participant "JwtService" as JwtSvc
+
+Jogador -> UI : preencherLogin(email, senha)
+activate UI
+
+UI -> AuthCtrl : POST /api/auth/login\n{ email, senha }
+activate AuthCtrl
+
+AuthCtrl -> AuthSvc : autenticar(email, senha)
+activate AuthSvc
+
+AuthSvc -> UsuarioRepo : buscarPorEmail(email)
+activate UsuarioRepo
+UsuarioRepo -> BD : SELECT * FROM usuarios\nWHERE email = ?
+activate BD
+BD --> UsuarioRepo : usuarioEncontrado
+deactivate BD
+UsuarioRepo --> AuthSvc : usuario
+deactivate UsuarioRepo
+
+AuthSvc -> AuthSvc : verificarSenha(senha, senhaHash)
+activate AuthSvc
+note right of AuthSvc : Compara senha informada\ncom hash BCrypt armazenado
+AuthSvc --> AuthSvc : senhaValida
+deactivate AuthSvc
+
+AuthSvc -> AuthSvc : verificarStatusConta(usuario)
+activate AuthSvc
+AuthSvc --> AuthSvc : contaAtiva
+deactivate AuthSvc
+
+AuthSvc -> UsuarioRepo : atualizarUltimoLogin(usuarioId)
+activate UsuarioRepo
+UsuarioRepo -> BD : UPDATE usuarios\nSET ultimo_login = NOW()\nWHERE id = ?
+activate BD
+BD --> UsuarioRepo : atualizado
+deactivate BD
+UsuarioRepo --> AuthSvc : atualizado
+deactivate UsuarioRepo
+
+AuthSvc -> JwtSvc : gerarToken(usuarioId, email, isAdmin)
+activate JwtSvc
+note right of JwtSvc : Gera JWT com claims:\nusuarioId, email,\nisAdmin, expiração
+JwtSvc --> AuthSvc : jwtToken
+deactivate JwtSvc
+
+AuthSvc --> AuthCtrl : loginRealizado(usuario, token)
+deactivate AuthSvc
+
+AuthCtrl --> UI : HTTP 200 OK\n{ token, usuarioId,\n  nome, ratingElo }
+deactivate AuthCtrl
+
+UI --> Jogador : redirecionar para\nDashboard do jogador
+deactivate UI
+
+@enduml

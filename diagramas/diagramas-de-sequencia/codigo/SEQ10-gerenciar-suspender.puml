@@ -1,0 +1,117 @@
+@startuml SEQ10-gerenciar-suspender
+title UC-16/17: Gerenciar e Suspender Usuários\nChessMate - Plataforma de Xadrez Online
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #2C3E50
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #D5E8D4
+  LifeLineBorderColor #2980B9
+  LifeLineBackgroundColor #EBF5FB
+  ParticipantBorderColor #2980B9
+  ParticipantBackgroundColor #EBF5FB
+  BoxBackgroundColor #F2F3F4
+  BoxBorderColor #BDC3C7
+}
+
+actor "Administrador" as ADM
+participant "Interface\nAdmin" as UI
+participant "AdminController" as AdminCtrl
+participant "AdminService" as AdminSvc
+participant "UsuarioRepository" as UsuarioRepo
+participant "AuditoriaRepository" as AuditoriaRepo
+database "Banco de Dados" as BD
+participant "EmailService" as EmailSvc
+participant "JwtService" as JwtSvc
+
+== Listagem de Usuários ==
+
+ADM -> UI : acessarPainelUsuarios()
+activate UI
+
+UI -> AdminCtrl : GET /api/admin/usuarios\n?page=0&size=20&status=ATIVA
+activate AdminCtrl
+
+AdminCtrl -> AdminSvc : listarUsuarios(filtros)
+activate AdminSvc
+
+AdminSvc -> UsuarioRepo : buscarComFiltros(filtros)
+activate UsuarioRepo
+UsuarioRepo -> BD : SELECT * FROM usuarios\nWHERE status = ?\nORDER BY criado_em DESC\nLIMIT 20 OFFSET 0
+activate BD
+BD --> UsuarioRepo : listaUsuarios
+deactivate BD
+UsuarioRepo --> AdminSvc : usuarios
+deactivate UsuarioRepo
+
+AdminSvc --> AdminCtrl : listaUsuarios(total, dados)
+deactivate AdminSvc
+
+AdminCtrl --> UI : HTTP 200 OK\n{ total, usuarios[] }
+deactivate AdminCtrl
+
+UI --> ADM : exibirListaUsuarios(\n  tabela paginada)
+deactivate UI
+
+== Suspensão de Conta ==
+
+ADM -> UI : selecionarUsuario(usuarioId)\ne clicarSuspender(motivo)
+activate UI
+
+UI -> AdminCtrl : PUT /api/admin/usuarios/{id}/suspender\n{ motivo, adminId }
+activate AdminCtrl
+
+AdminCtrl -> AdminSvc : suspenderConta(\n  usuarioId, adminId, motivo)
+activate AdminSvc
+
+AdminSvc -> UsuarioRepo : buscarUsuario(usuarioId)
+activate UsuarioRepo
+UsuarioRepo -> BD : SELECT * FROM usuarios\nWHERE id = ?
+activate BD
+BD --> UsuarioRepo : usuarioEncontrado
+deactivate BD
+UsuarioRepo --> AdminSvc : usuario
+deactivate UsuarioRepo
+
+AdminSvc -> UsuarioRepo : atualizarStatus(\n  usuarioId, SUSPENSA)
+activate UsuarioRepo
+UsuarioRepo -> BD : UPDATE usuarios\nSET status = 'SUSPENSA'\nWHERE id = ?
+activate BD
+BD --> UsuarioRepo : atualizado
+deactivate BD
+UsuarioRepo --> AdminSvc : statusAtualizado
+deactivate UsuarioRepo
+
+AdminSvc -> JwtSvc : invalidarTokensUsuario(usuarioId)
+activate JwtSvc
+note right of JwtSvc : Invalida todos os tokens\nJWT ativos do usuário
+JwtSvc --> AdminSvc : tokensInvalidados
+deactivate JwtSvc
+
+AdminSvc -> AuditoriaRepo : registrarAcao(\n  adminId, "SUSPENDER_CONTA",\n  usuarioId, motivo)
+activate AuditoriaRepo
+AuditoriaRepo -> BD : INSERT INTO auditoria\n(admin_id, acao,\nentidade_id, detalhes,\ncriado_em)
+activate BD
+BD --> AuditoriaRepo : registroSalvo
+deactivate BD
+AuditoriaRepo --> AdminSvc : acaoRegistrada
+deactivate AuditoriaRepo
+
+AdminSvc ->> EmailSvc : notificarSuspensao(\n  usuario.email, motivo)
+activate EmailSvc
+note right of EmailSvc : Envia e-mail assíncrono\ncom motivo da suspensão
+EmailSvc --> AdminSvc : emailEnviado
+deactivate EmailSvc
+
+AdminSvc --> AdminCtrl : contaSuspensa
+deactivate AdminSvc
+
+AdminCtrl --> UI : HTTP 200 OK\n{ mensagem: "Conta suspensa\ncom sucesso" }
+deactivate AdminCtrl
+
+UI --> ADM : exibirConfirmacao(\n  "Usuário suspenso e notificado.")
+deactivate UI
+
+@enduml

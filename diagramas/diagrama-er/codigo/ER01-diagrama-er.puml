@@ -1,0 +1,180 @@
+@startuml ER01-diagrama-er
+title Modelo de Dados (ER Simplificado)\nChessMate - Plataforma de Xadrez Online
+
+skinparam backgroundColor #FAFAFA
+skinparam entity {
+  BackgroundColor #EBF5FB
+  BorderColor #2980B9
+  FontSize 12
+}
+skinparam linetype ortho
+
+entity "usuarios" as USR {
+  * id : UUID <<PK>>
+  --
+  * nome : VARCHAR(100)
+  * email : VARCHAR(150) <<UNIQUE>>
+  * senha_hash : VARCHAR(255)
+    data_nascimento : DATE
+    foto_perfil : TEXT
+    biografia : VARCHAR(500)
+  * rating_elo : INTEGER DEFAULT 1200
+  * status : ENUM
+  * is_admin : BOOLEAN DEFAULT false
+    nivel_acesso : INTEGER
+    departamento : VARCHAR(100)
+    ultimo_login : TIMESTAMP
+  * criado_em : TIMESTAMP
+}
+
+entity "partidas" as PAR {
+  * id : UUID <<PK>>
+  --
+  * modalidade : ENUM
+  * status : ENUM
+  * resultado : ENUM
+  * tempo_controle : INTEGER
+    incremento : INTEGER DEFAULT 0
+    data_inicio : TIMESTAMP
+    data_fim : TIMESTAMP
+  * criada_em : TIMESTAMP
+}
+
+entity "partida_jogadores" as PJ {
+  * id : UUID <<PK>>
+  --
+  * partida_id : UUID <<FK>>
+  * usuario_id : UUID <<FK>>
+  * cor : ENUM
+  * rating_antes : INTEGER
+    rating_depois : INTEGER
+    tempo_restante : INTEGER
+  * resultado : ENUM
+}
+
+entity "movimentos" as MOV {
+  * id : UUID <<PK>>
+  --
+  * partida_id : UUID <<FK>>
+  * usuario_id : UUID <<FK>>
+  * notacao_pgn : VARCHAR(20)
+    notacao_algebrica : VARCHAR(10)
+  * ordem : INTEGER
+  * timestamp : TIMESTAMP
+    tempo_gasto : INTEGER
+    peca_movida : VARCHAR(10)
+    posicao_origem : VARCHAR(5)
+    posicao_destino : VARCHAR(5)
+}
+
+entity "analises" as ANL {
+  * id : UUID <<PK>>
+  --
+  * partida_id : UUID <<FK>>
+  * profundidade : INTEGER
+    melhor_lance : VARCHAR(20)
+    avaliacao : DECIMAL(5,2)
+  * data_analise : TIMESTAMP
+    movimentos_analisados : INTEGER
+  * engine : VARCHAR(50) DEFAULT 'Stockfish'
+}
+
+entity "movimentos_analisados" as MA {
+  * id : UUID <<PK>>
+  --
+  * analise_id : UUID <<FK>>
+  * movimento_id : UUID <<FK>>
+    avaliacao_antes : DECIMAL(5,2)
+    avaliacao_depois : DECIMAL(5,2)
+    melhor_alternativa : VARCHAR(20)
+  * classificacao : ENUM
+}
+
+entity "convites" as CON {
+  * id : UUID <<PK>>
+  --
+  * remetente_id : UUID <<FK>>
+  * destinatario_id : UUID <<FK>>
+  * modalidade : ENUM
+    mensagem : VARCHAR(255)
+  * status : ENUM
+  * data_criacao : TIMESTAMP
+    data_expiracao : TIMESTAMP
+    partida_id : UUID <<FK>>
+}
+
+entity "amizades" as AMZ {
+  * id : UUID <<PK>>
+  --
+  * solicitante_id : UUID <<FK>>
+  * receptor_id : UUID <<FK>>
+  * status : ENUM
+  * data_criacao : TIMESTAMP
+    data_atualizacao : TIMESTAMP
+}
+
+entity "ranking_entries" as RNK {
+  * id : UUID <<PK>>
+  --
+  * usuario_id : UUID <<FK>>
+  * modalidade : ENUM
+  * posicao : INTEGER
+  * rating_elo : INTEGER
+  * vitorias : INTEGER DEFAULT 0
+  * derrotas : INTEGER DEFAULT 0
+  * empates : INTEGER DEFAULT 0
+  * periodo : VARCHAR(20)
+  * atualizado_em : TIMESTAMP
+}
+
+entity "relatorios" as REL {
+  * id : UUID <<PK>>
+  --
+  * admin_id : UUID <<FK>>
+  * tipo : ENUM
+  * data_geracao : TIMESTAMP
+    conteudo : JSONB
+  * formato : VARCHAR(10) DEFAULT 'PDF'
+    parametros : JSONB
+}
+
+entity "tokens_recuperacao" as TOK {
+  * id : UUID <<PK>>
+  --
+  * usuario_id : UUID <<FK>>
+  * token : VARCHAR(255) <<UNIQUE>>
+  * expiracao : TIMESTAMP
+  * criado_em : TIMESTAMP
+}
+
+entity "auditoria" as AUD {
+  * id : UUID <<PK>>
+  --
+  * admin_id : UUID <<FK>>
+  * acao : VARCHAR(100)
+    entidade_tipo : VARCHAR(50)
+    entidade_id : UUID
+    detalhes : JSONB
+  * criado_em : TIMESTAMP
+}
+
+' =========== RELACIONAMENTOS ===========
+
+USR ||--o{ PJ          : "participa"
+USR ||--o{ MOV         : "realiza"
+USR ||--o{ CON         : "envia"
+USR ||--o{ AMZ         : "solicita"
+USR ||--o{ RNK         : "aparece em"
+USR ||--o{ REL         : "solicita"
+USR ||--o{ TOK         : "solicita"
+USR ||--o{ AUD         : "auditado em"
+
+PAR ||--o{ PJ          : "possui"
+PAR ||--|{ MOV         : "contém"
+PAR ||--o| ANL         : "possui"
+PAR ||--o| CON         : "originada de"
+
+ANL ||--o{ MA          : "gera"
+MOV ||--o{ MA          : "referenciado em"
+
+@enduml

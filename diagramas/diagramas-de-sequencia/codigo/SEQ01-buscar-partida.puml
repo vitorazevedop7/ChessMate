@@ -1,0 +1,90 @@
+@startuml SEQ01-buscar-partida
+title UC-06: Buscar Partida (Matchmaking)\nChessMate - Plataforma de Xadrez Online
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #2C3E50
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #D5E8D4
+  LifeLineBorderColor #2980B9
+  LifeLineBackgroundColor #EBF5FB
+  ParticipantBorderColor #2980B9
+  ParticipantBackgroundColor #EBF5FB
+  BoxBackgroundColor #F2F3F4
+  BoxBorderColor #BDC3C7
+}
+
+actor "Jogador" as Jogador
+participant "Interface\nWeb" as UI
+participant "PartidaController" as PartidaCtrl
+participant "MatchmakingService" as MatchSvc
+participant "PartidaService" as PartidaSvc
+participant "PartidaRepository" as PartidaRepo
+database "Banco de Dados" as BD
+participant "SistemaMatchmaking\n(Externo)" as MM
+participant "WebSocketService" as WSSvc
+
+Jogador -> UI : selecionarModalidade(BLITZ)\ne clicar "Buscar Partida"
+activate UI
+
+UI -> PartidaCtrl : POST /api/partidas/buscar\n{ modalidade, ratingElo }
+activate PartidaCtrl
+
+PartidaCtrl -> MatchSvc : entrarNaFila(usuarioId, modalidade, ratingElo)
+activate MatchSvc
+
+MatchSvc -> PartidaRepo : buscarJogadorNaFila(usuarioId)
+activate PartidaRepo
+PartidaRepo -> BD : SELECT * FROM fila_matchmaking\nWHERE usuario_id = ?
+activate BD
+BD --> PartidaRepo : filaVazia
+deactivate BD
+PartidaRepo --> MatchSvc : jogadorNaoNaFila
+deactivate PartidaRepo
+
+MatchSvc -> MM : solicitarParamento(\n  usuarioId, ratingElo, modalidade)
+activate MM
+note right of MM : Sistema externo de\nmatchmaking por rating Elo
+MM --> MatchSvc : adversarioEncontrado(\n  adversarioId, ratingAdversario)
+deactivate MM
+
+MatchSvc -> PartidaSvc : criarPartida(\n  jogador1Id, jogador2Id, modalidade)
+activate PartidaSvc
+
+PartidaSvc -> PartidaRepo : salvarPartida(novaPartida)
+activate PartidaRepo
+PartidaRepo -> BD : INSERT INTO partidas (...)\nINSERT INTO partida_jogadores (...)
+activate BD
+BD --> PartidaRepo : partidaCriada(partidaId)
+deactivate BD
+PartidaRepo --> PartidaSvc : partidaSalva
+deactivate PartidaRepo
+
+PartidaSvc --> MatchSvc : partidaCriada(partidaId)
+deactivate PartidaSvc
+
+MatchSvc ->> WSSvc : notificarJogadores(\n  partidaId, jogador1Id, jogador2Id)
+activate WSSvc
+note right of WSSvc : Notificação assíncrona\nvia WebSocket
+WSSvc --> MatchSvc : notificacaoEnviada
+deactivate WSSvc
+
+MatchSvc --> PartidaCtrl : partidaIniciada(partidaId)
+deactivate MatchSvc
+
+PartidaCtrl --> UI : HTTP 200 OK\n{ partidaId, adversario, cor }
+deactivate PartidaCtrl
+
+UI --> Jogador : redirecionar para\ntabuleiro da partida
+deactivate UI
+
+== Jogador aguarda no tabuleiro ==
+
+WSSvc -> UI : eventoPartidaPronta(\n  partidaId, configuracoes)
+activate UI
+UI --> Jogador : exibirTabuleiro(\n  cor atribuída, tempo, adversário)
+deactivate UI
+
+@enduml

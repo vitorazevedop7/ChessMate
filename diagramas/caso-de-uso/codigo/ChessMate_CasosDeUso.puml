@@ -1,0 +1,119 @@
+@startuml ChessMate_CasosDeUso
+title ChessMate - Diagrama de Casos de Uso
+
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam backgroundColor #FAFAFA
+skinparam usecase {
+  BackgroundColor #E8F4FD
+  BorderColor #2980B9
+  ArrowColor #2C3E50
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #D5E8D4
+}
+skinparam note {
+  BackgroundColor #FFF9C4
+  BorderColor #F0C040
+}
+
+left to right direction
+
+actor "Jogador"                       as JOG
+actor "Administrador"                 as ADM
+actor "Sistema de\nMatchmaking"       as MM
+actor "Motor de Análise\n(Stockfish)" as STK
+actor "Serviço de\nE-mail"            as EMAIL
+
+rectangle "ChessMate" {
+
+  package "Autenticação e Perfil" {
+    usecase "UC-01\nCadastrar Conta"          as UC01
+    usecase "UC-02\nAutenticar (Login)"        as UC02
+    usecase "UC-03\nRecuperar Senha"           as UC03
+    usecase "UC-04\nEditar Perfil"             as UC04
+    usecase "UC-05\nVisualizar Perfil Público" as UC05
+  }
+
+  package "Partidas" {
+    usecase "UC-06\nBuscar Partida\n(Matchmaking)" as UC06
+    usecase "UC-07\nJogar Partida"                 as UC07
+    usecase "UC-08\nAbandonar Partida"             as UC08
+    usecase "UC-09\nConvidar Amigo\npara Partida"  as UC09
+  }
+
+  package "Análise e Histórico" {
+    usecase "UC-10\nAnalisar Partida"          as UC10
+    usecase "UC-11\nVisualizar Histórico"      as UC11
+    usecase "UC-12\nExportar PGN da Partida"   as UC12
+    usecase "UC-13\nVisualizar Ranking (Elo)"  as UC13
+  }
+
+  package "Social" {
+    usecase "UC-14\nAdicionar Amigo"              as UC14
+    usecase "UC-15\nVer Perfil de\nOutro Jogador" as UC15
+  }
+
+  package "Administração" {
+    usecase "UC-16\nGerenciar Usuários"            as UC16
+    usecase "UC-17\nSuspender Conta"               as UC17
+    usecase "UC-18\nGerar Relatório\nde Partidas"  as UC18
+  }
+
+  ' ── Include ──────────────────────────────────────
+  UC04 ..> UC02 : <<include>>
+  UC06 ..> UC02 : <<include>>
+  UC07 ..> UC02 : <<include>>
+  UC09 ..> UC02 : <<include>>
+  UC10 ..> UC02 : <<include>>
+  UC11 ..> UC02 : <<include>>
+  UC12 ..> UC02 : <<include>>
+  UC13 ..> UC02 : <<include>>
+  UC14 ..> UC02 : <<include>>
+  UC16 ..> UC02 : <<include>>
+
+  UC10 ..> UC11 : <<include>>
+  UC12 ..> UC11 : <<include>>
+  UC07 ..> UC06 : <<include>>
+
+  ' ── Extend ───────────────────────────────────────
+  UC03 ..> UC01 : <<extend>>\n[esqueceu senha]
+  UC08 ..> UC07 : <<extend>>
+  UC09 ..> UC06 : <<extend>>\n[convite direto]
+  UC17 ..> UC16 : <<extend>>
+
+  ' ── Include com sistemas externos ────────────────
+  UC03 ..> EMAIL : <<include>>
+  UC01 ..> EMAIL : <<include>>
+
+}
+
+' ── Associações de atores ─────────────────────────
+JOG --> UC01
+JOG --> UC02
+JOG --> UC03
+JOG --> UC04
+JOG --> UC05
+JOG --> UC06
+JOG --> UC07
+JOG --> UC08
+JOG --> UC09
+JOG --> UC10
+JOG --> UC11
+JOG --> UC12
+JOG --> UC13
+JOG --> UC14
+JOG --> UC15
+
+ADM --> UC02
+ADM --> UC16
+ADM --> UC17
+ADM --> UC18
+
+MM  --> UC06
+STK --> UC10
+
+note top of UC06 : Pareia jogadores\npor rating Elo\ne modalidade
+note top of UC10 : Análise move a move\ncom sugestões do\nStockfish
+note bottom of UC16 : Admin visualiza\nmétricas, bane e\nreativa contas
+
+@enduml

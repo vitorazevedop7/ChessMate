@@ -1,0 +1,296 @@
+@startuml CLS01-diagrama-classes
+title Diagrama de Classes\nChessMate - Plataforma de Xadrez Online
+
+skinparam backgroundColor #FAFAFA
+skinparam class {
+  BackgroundColor #EBF5FB
+  BorderColor #2980B9
+  ArrowColor #2C3E50
+  FontSize 12
+  HeaderBackgroundColor #2980B9
+  HeaderFontColor #FFFFFF
+}
+skinparam note {
+  BackgroundColor #FFF9C4
+  BorderColor #F0C040
+}
+
+' =========== USUÁRIO ===========
+class Usuario {
+  - id: UUID
+  - nome: String
+  - email: String
+  - senhaHash: String
+  - dataNascimento: Date
+  - fotoPerfil: String
+  - biografia: String
+  - ratingElo: Integer
+  - status: StatusConta
+  - ultimoLogin: DateTime
+  - criadoEm: DateTime
+  + autenticar(senha: String): Boolean
+  + atualizarPerfil(dados: DadosPerfil): void
+  + recuperarSenha(email: String): void
+  + getHistoricoPartidas(): List~Partida~
+  + calcularRating(): Integer
+}
+
+class Administrador {
+  - nivelAcesso: Integer
+  - departamento: String
+  + suspenderConta(usuario: Usuario): void
+  + reativarConta(usuario: Usuario): void
+  + gerarRelatorio(tipo: String): Relatorio
+  + gerenciarUsuarios(): List~Usuario~
+}
+
+enum StatusConta {
+  ATIVA
+  SUSPENSA
+  BANIDA
+  PENDENTE_CONFIRMACAO
+}
+
+class DadosPerfil {
+  + nome: String
+  + fotoPerfil: String
+  + biografia: String
+}
+
+' =========== PARTIDA ===========
+class Partida {
+  - id: UUID
+  - modalidade: Modalidade
+  - status: StatusPartida
+  - resultado: ResultadoPartida
+  - tempoControle: Integer
+  - incremento: Integer
+  - dataInicio: DateTime
+  - dataFim: DateTime
+  - criadaEm: DateTime
+  + iniciar(): void
+  + registrarMovimento(mov: Movimento): void
+  + finalizar(resultado: ResultadoPartida): void
+  + abandonar(jogador: Usuario): void
+  + exportarPGN(): String
+  + getDuracao(): Integer
+}
+
+class PartidaJogador {
+  - partidaId: UUID
+  - usuarioId: UUID
+  - cor: CorPeca
+  - ratingAntes: Integer
+  - ratingDepois: Integer
+  - tempoRestante: Integer
+  - resultado: ResultadoJogador
+}
+
+enum Modalidade {
+  CLASSICO
+  RAPIDO
+  BLITZ
+  BULLET
+}
+
+enum StatusPartida {
+  AGUARDANDO
+  EM_ANDAMENTO
+  FINALIZADA
+  ABANDONADA
+  CANCELADA
+}
+
+enum ResultadoPartida {
+  VITORIA_BRANCAS
+  VITORIA_NEGRAS
+  EMPATE
+  INDEFINIDO
+}
+
+enum CorPeca {
+  BRANCAS
+  NEGRAS
+}
+
+enum ResultadoJogador {
+  VITORIA
+  DERROTA
+  EMPATE
+}
+
+' =========== MOVIMENTO ===========
+class Movimento {
+  - id: UUID
+  - partidaId: UUID
+  - usuarioId: UUID
+  - notacaoPGN: String
+  - notacaoAlgebrica: String
+  - ordem: Integer
+  - timestamp: DateTime
+  - tempoGasto: Integer
+  - pecaMovida: String
+  - posicaoOrigem: String
+  - posicaoDestino: String
+  + validar(): Boolean
+  + toAlgebraica(): String
+  + toUCI(): String
+}
+
+' =========== ANÁLISE ===========
+class Analise {
+  - id: UUID
+  - partidaId: UUID
+  - profundidade: Integer
+  - melhorLance: String
+  - avaliacao: Double
+  - dataAnalise: DateTime
+  - movimentosAnalisados: Integer
+  - engine: String
+  + executar(): void
+  + getSugestoes(): List~String~
+  + getErrosCriticos(): List~MovimentoAnalisado~
+}
+
+class MovimentoAnalisado {
+  - movimentoId: UUID
+  - avaliacaoAntes: Double
+  - avaliacaoDepois: Double
+  - melhorAlternativa: String
+  - classificacao: ClassificacaoLance
+}
+
+enum ClassificacaoLance {
+  EXCELENTE
+  BOM
+  IMPRECISAO
+  ERRO
+  ERRO_CRITICO
+}
+
+' =========== CONVITE ===========
+class Convite {
+  - id: UUID
+  - remetenteId: UUID
+  - destinatarioId: UUID
+  - modalidade: Modalidade
+  - mensagem: String
+  - status: StatusConvite
+  - dataCriacao: DateTime
+  - dataExpiracao: DateTime
+  + enviar(): void
+  + aceitar(): void
+  + recusar(): void
+  + expirar(): void
+  + isExpirado(): Boolean
+}
+
+enum StatusConvite {
+  PENDENTE
+  ACEITO
+  RECUSADO
+  EXPIRADO
+  CANCELADO
+}
+
+' =========== AMIZADE ===========
+class Amizade {
+  - id: UUID
+  - solicitanteId: UUID
+  - receptorId: UUID
+  - status: StatusAmizade
+  - dataCriacao: DateTime
+  - dataAtualizacao: DateTime
+  + solicitar(): void
+  + aceitar(): void
+  + recusar(): void
+  + bloquear(): void
+}
+
+enum StatusAmizade {
+  PENDENTE
+  ACEITA
+  RECUSADA
+  BLOQUEADA
+}
+
+' =========== RANKING ===========
+class RankingEntry {
+  - usuarioId: UUID
+  - modalidade: Modalidade
+  - posicao: Integer
+  - ratingElo: Integer
+  - vitorias: Integer
+  - derrotas: Integer
+  - empates: Integer
+  - periodo: String
+  - atualizadoEm: DateTime
+  + calcularWinRate(): Double
+  + getPosicao(): Integer
+}
+
+' =========== RELATÓRIO ===========
+class Relatorio {
+  - id: UUID
+  - adminId: UUID
+  - tipo: TipoRelatorio
+  - dataGeracao: DateTime
+  - conteudo: JSON
+  - formato: String
+  - parametros: JSON
+  + gerar(): void
+  + exportar(): File
+}
+
+enum TipoRelatorio {
+  PARTIDAS_POR_PERIODO
+  USUARIOS_ATIVOS
+  CONTAS_SUSPENSAS
+  METRICAS_GERAIS
+}
+
+' =========== AUDITORIA ===========
+class RegistroAuditoria {
+  - id: UUID
+  - adminId: UUID
+  - acao: String
+  - entidadeId: UUID
+  - detalhes: JSON
+  - criadoEm: DateTime
+}
+
+' =========== RELACIONAMENTOS ===========
+
+Administrador --|> Usuario
+
+Usuario "1" -- "*" PartidaJogador : participa >
+Partida "1" -- "*" PartidaJogador : possui >
+
+Partida "1" *-- "*" Movimento : contém >
+Partida "1" -- "0..1" Analise : possui >
+Partida "1" -- "0..1" Convite : originada de >
+
+Analise "1" -- "*" MovimentoAnalisado : gera >
+MovimentoAnalisado "*" -- "1" Movimento : referencia >
+
+Usuario "1" -- "*" Convite : envia >
+Usuario "1" -- "*" Amizade : solicita >
+Usuario "1" -- "*" RankingEntry : aparece em >
+Usuario "1" -- "*" Relatorio : solicita >
+Administrador "1" -- "*" RegistroAuditoria : registra >
+
+Partida "1" -- "1" Modalidade
+Partida "1" -- "1" StatusPartida
+Partida "1" -- "1" ResultadoPartida
+PartidaJogador "1" -- "1" CorPeca
+PartidaJogador "1" -- "1" ResultadoJogador
+Usuario "1" -- "1" StatusConta
+Convite "1" -- "1" StatusConvite
+Amizade "1" -- "1" StatusAmizade
+Relatorio "1" -- "1" TipoRelatorio
+MovimentoAnalisado "1" -- "1" ClassificacaoLance
+
+Usuario ..> DadosPerfil : usa >
+Analise ..> MovimentoAnalisado : calcula >
+
+@enduml

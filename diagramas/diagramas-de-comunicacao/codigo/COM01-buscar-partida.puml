@@ -1,0 +1,47 @@
+@startuml COM01-buscar-partida
+title Diagrama de Comunicação: Buscar Partida (Matchmaking)\nChessMate - Plataforma de Xadrez Online
+
+skinparam backgroundColor #FAFAFA
+skinparam participant {
+  BorderColor #2980B9
+  BackgroundColor #EBF5FB
+}
+skinparam ArrowColor #2C3E50
+skinparam ActorBorderColor #2C3E50
+skinparam ActorBackgroundColor #D5E8D4
+
+participant "Jogador" as JOG
+participant "PartidaController" as PC
+participant "MatchmakingService" as MS
+participant "SistemaMatchmaking\n(Externo)" as MM
+participant "PartidaService" as PS
+participant "PartidaRepository" as PR
+participant "WebSocketService" as WS
+
+note over JOG : 1. Jogador autenticado\nselecionou modalidade BLITZ
+
+JOG -> PC : 2. POST /api/partidas/buscar\n{modalidade, ratingElo}
+PC -> MS : 3. entrarNaFila(usuarioId, modalidade, ratingElo)
+MS -> MM : 4. solicitarPareamento(usuarioId, ratingElo, modalidade)
+MM --> MS : 5. adversarioEncontrado(adversarioId, ratingAdversario)
+MS -> PS : 6. criarPartida(jogador1Id, jogador2Id, modalidade)
+PS -> PR : 7. salvarPartida(novaPartida)
+PR --> PS : 8. partidaCriada(partidaId)
+PS --> MS : 9. partidaSalva(partidaId)
+MS ->> WS : 10. [async] notificarJogadores(partidaId, jogador1Id, jogador2Id)
+MS --> PC : 11. partidaIniciada(partidaId)
+PC --> JOG : 12. HTTP 200 OK {partidaId, adversario, cor}
+
+note right of MM
+  Sistema externo de matchmaking.
+  Pareia jogadores por proximidade
+  de rating Elo e modalidade.
+end note
+
+note right of WS
+  Notificação assíncrona via WebSocket.
+  Ambos os jogadores são redirecionados
+  ao tabuleiro simultaneamente.
+end note
+
+@enduml

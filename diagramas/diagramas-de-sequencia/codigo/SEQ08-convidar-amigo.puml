@@ -1,0 +1,121 @@
+@startuml SEQ08-convidar-amigo
+title UC-09: Convidar Amigo para Partida\nChessMate - Plataforma de Xadrez Online
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #2C3E50
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #D5E8D4
+  LifeLineBorderColor #2980B9
+  LifeLineBackgroundColor #EBF5FB
+  ParticipantBorderColor #2980B9
+  ParticipantBackgroundColor #EBF5FB
+  BoxBackgroundColor #F2F3F4
+  BoxBorderColor #BDC3C7
+}
+
+actor "Jogador" as Jogador
+actor "Amigo" as Amigo
+participant "Interface\nWeb" as UI
+participant "ConviteController" as ConviteCtrl
+participant "ConviteService" as ConviteSvc
+participant "AmizadeRepository" as AmizadeRepo
+participant "ConviteRepository" as ConviteRepo
+database "Banco de Dados" as BD
+participant "WebSocketService" as WSSvc
+participant "PartidaService" as PartidaSvc
+
+== Envio do Convite ==
+
+Jogador -> UI : selecionarAmigo(amigoId)\ne modalidade(BLITZ)
+activate UI
+
+UI -> ConviteCtrl : POST /api/convites\n{ destinatarioId, modalidade }
+activate ConviteCtrl
+
+ConviteCtrl -> ConviteSvc : enviarConvite(\n  remetenteId, destinatarioId, modalidade)
+activate ConviteSvc
+
+ConviteSvc -> AmizadeRepo : verificarAmizade(\n  remetenteId, destinatarioId)
+activate AmizadeRepo
+AmizadeRepo -> BD : SELECT * FROM amizades\nWHERE (solicitante_id = ? AND receptor_id = ?)\nOR (solicitante_id = ? AND receptor_id = ?)\nAND status = 'ACEITA'
+activate BD
+BD --> AmizadeRepo : amizadeConfirmada
+deactivate BD
+AmizadeRepo --> ConviteSvc : amizadeValida
+deactivate AmizadeRepo
+
+ConviteSvc -> ConviteRepo : salvarConvite(convite)
+activate ConviteRepo
+ConviteRepo -> BD : INSERT INTO convites\n(remetente_id, destinatario_id,\nmodalidade, status,\ndata_expiracao)
+activate BD
+BD --> ConviteRepo : conviteSalvo(conviteId)
+deactivate BD
+ConviteRepo --> ConviteSvc : conviteCriado
+deactivate ConviteRepo
+
+ConviteSvc ->> WSSvc : notificarConvite(\n  destinatarioId, conviteId)
+activate WSSvc
+note right of WSSvc : Envia notificação\nassíncrona via WebSocket
+WSSvc --> ConviteSvc : notificado
+deactivate WSSvc
+
+ConviteSvc --> ConviteCtrl : conviteEnviado(conviteId)
+deactivate ConviteSvc
+
+ConviteCtrl --> UI : HTTP 201 Created\n{ conviteId, status: "PENDENTE" }
+deactivate ConviteCtrl
+
+UI --> Jogador : exibirMensagem(\n  "Convite enviado!\nAguardando resposta...")
+deactivate UI
+
+== Resposta ao Convite ==
+
+WSSvc -> UI : eventoConviteRecebido(convite)
+activate UI
+UI --> Amigo : exibirConvite(\n  "Jogador te convidou\npara uma partida BLITZ!")
+
+Amigo -> UI : aceitarConvite(conviteId)
+
+UI -> ConviteCtrl : PUT /api/convites/{id}/aceitar
+activate ConviteCtrl
+
+ConviteCtrl -> ConviteSvc : aceitarConvite(conviteId, amigoId)
+activate ConviteSvc
+
+ConviteSvc -> ConviteRepo : atualizarStatus(\n  conviteId, ACEITO)
+activate ConviteRepo
+ConviteRepo -> BD : UPDATE convites\nSET status = 'ACEITO'\nWHERE id = ?
+activate BD
+BD --> ConviteRepo : atualizado
+deactivate BD
+ConviteRepo --> ConviteSvc : statusAtualizado
+deactivate ConviteRepo
+
+ConviteSvc -> PartidaSvc : criarPartida(\n  remetenteId, destinatarioId, modalidade)
+activate PartidaSvc
+PartidaSvc --> ConviteSvc : partidaCriada(partidaId)
+deactivate PartidaSvc
+
+ConviteSvc ->> WSSvc : notificarPartidaCriada(\n  remetenteId, destinatarioId, partidaId)
+activate WSSvc
+WSSvc --> ConviteSvc : notificado
+deactivate WSSvc
+
+ConviteSvc --> ConviteCtrl : conviteAceito(partidaId)
+deactivate ConviteSvc
+
+ConviteCtrl --> UI : HTTP 200 OK\n{ partidaId, mensagem: "Partida criada!" }
+deactivate ConviteCtrl
+
+UI --> Amigo : redirecionar para tabuleiro
+deactivate UI
+
+WSSvc -> UI : eventoConviteAceito(partidaId)
+activate UI
+UI --> Jogador : redirecionar para tabuleiro
+deactivate UI
+
+@enduml

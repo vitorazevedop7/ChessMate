@@ -1,0 +1,111 @@
+@startuml ARQ-C4-container
+title Arquitetura C4 - Nível Container\nChessMate - Plataforma de Xadrez Online
+
+skinparam backgroundColor #FAFAFA
+skinparam rectangle {
+  BorderColor #2C3E50
+  FontSize 12
+}
+skinparam database {
+  BackgroundColor #FAD7A0
+  BorderColor #E67E22
+  FontSize 12
+}
+skinparam actor {
+  BorderColor #2C3E50
+  BackgroundColor #D5E8D4
+  FontSize 12
+}
+skinparam node {
+  BackgroundColor #EBF5FB
+  BorderColor #2980B9
+  FontSize 12
+}
+skinparam ArrowColor #2C3E50
+skinparam note {
+  BackgroundColor #FFF9C4
+  BorderColor #F0C040
+}
+
+' ── Atores externos ──────────────────────────────────────────────────────────
+actor "Jogador" as Jogador
+actor "Administrador" as Admin
+
+' ── Sistemas externos ─────────────────────────────────────────────────────────
+rectangle "Sistema de\nMatchmaking\n[Externo]" as MM #F9EBEA
+rectangle "Motor de Análise\n[Stockfish]\nAnálise de xadrez" as STK #F9EBEA
+rectangle "SendGrid\n[E-mail]\nConfirmação e recuperação" as Email #F9EBEA
+rectangle "AWS SES\n[E-mail Transacional]\nNotificações do sistema" as SES #F9EBEA
+
+' ── Sistema ChessMate ────────────────────────────────────────────────────────
+rectangle "ChessMate - Plataforma de Xadrez Online" #EBF5FB {
+
+  rectangle "App Web\n[React + Vite]\nInterface para navegador" as WebApp #D5E8D4
+
+  rectangle "API Gateway\n[AWS API Gateway]\nRoteamento, JWT,\nRate Limiting, CORS" as APIGW #D6EAF8
+
+  rectangle "Back-end\n[Spring Boot 3 / Java 17]\nServiços:\nAuth, Partida, Matchmaking,\nAnálise, Social, Admin,\nRanking, Relatório" as Backend #D6EAF8
+
+  rectangle "WebSocket Server\n[Spring WebSocket]\nMovimentos em tempo real\ne notificações" as WSS #D6EAF8
+
+  rectangle "Worker de Análise\n[Spring Batch]\nProcessamento assíncrono\nde análises Stockfish" as Worker #D6EAF8
+
+  database "Banco de Dados\n[PostgreSQL 15 - AWS RDS]\nPersistência principal" as DB
+
+  database "Cache\n[Redis 7 - ElastiCache]\nSessões JWT, rankings,\nfila de matchmaking" as Cache
+
+  database "Object Storage\n[AWS S3 + CloudFront]\nFotos de perfil,\nexportações PGN" as S3
+
+  rectangle "Fila de Mensagens\n[AWS SQS]\nAnálises, e-mails,\nnotificações assíncronas" as SQS
+
+}
+
+' ── Relações dos usuários ─────────────────────────────────────────────────────
+Jogador --> WebApp   : usa via navegador\n[HTTPS]
+Admin   --> WebApp   : acessa painel\nadministrativo [HTTPS]
+
+' ── Front-end → Gateway ──────────────────────────────────────────────────────
+WebApp --> APIGW : chamadas REST\n[HTTPS/JSON]
+WebApp --> WSS   : movimentos e eventos\nem tempo real [WSS]
+
+' ── Gateway → Backend ────────────────────────────────────────────────────────
+APIGW --> Backend : roteia requisições\n[HTTP interno]
+
+' ── Backend → Infraestrutura interna ─────────────────────────────────────────
+Backend --> DB     : leitura e escrita\n[TCP/IP - Hibernate/JPA]
+Backend --> Cache  : sessões e rankings\n[TCP/IP - Redis]
+Backend --> S3     : upload/download\nde arquivos [HTTPS]
+Backend --> SQS    : publica eventos\nassíncronos [HTTPS]
+Backend --> WSS    : emite eventos\nde partida [interno]
+SQS     --> Worker : consome fila\nde análises [HTTPS]
+Worker  --> STK    : envia PGN para\nanálise [TCP/IP]
+Worker  --> DB     : persiste resultado\nda análise [TCP/IP]
+
+' ── Backend → Sistemas externos ─────────────────────────────────────────────
+Backend --> MM    : solicita pareamento\npor rating Elo [HTTPS/REST]
+MM      --> Backend : retorna adversário\nencontrado [HTTPS/REST]
+Backend --> Email  : envia e-mail de\nconfirmação e recuperação [HTTPS]
+Backend --> SES    : envia notificações\ntransacionais [HTTPS/SMTP]
+
+note bottom of Backend
+  8 serviços organizados
+  por domínio de negócio.
+  Deploy em containers Docker
+  no AWS ECS com auto scaling
+  de 2 a 10 instâncias.
+end note
+
+note bottom of DB
+  Multi-AZ para
+  alta disponibilidade.
+  Backup automático diário.
+  Read replica para relatórios.
+end note
+
+note bottom of Cache
+  TTL de 1h para sessões JWT.
+  Rankings atualizados a cada
+  5 minutos via job agendado.
+end note
+
+@enduml

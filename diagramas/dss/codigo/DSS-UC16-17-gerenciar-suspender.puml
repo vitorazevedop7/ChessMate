@@ -1,0 +1,67 @@
+@startuml DSS-UC16-17-gerenciar-suspender
+title DSS - UC-16/17: Gerenciar e Suspender Usuários\nChessMate - Plataforma de Xadrez Online (Visão de Sistema)
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #2C3E50
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #D5E8D4
+  LifeLineBorderColor #2980B9
+  LifeLineBackgroundColor #EBF5FB
+  ParticipantBorderColor #2980B9
+  ParticipantBackgroundColor #EBF5FB
+  BoxBackgroundColor #F2F3F4
+  BoxBorderColor #BDC3C7
+}
+
+note over Sistema
+  <<Sistema>>
+  ChessMate
+  (caixa preta)
+end note
+
+actor "Administrador" as ADM
+actor "Usuário\nAfetado" as UA
+participant "Sistema\nChessMate" as Sistema
+
+ADM -> Sistema : acessarPainelAdmin()
+activate Sistema
+Sistema --> ADM : exibirListaUsuarios(\n  usuarios, filtros, metricas)
+deactivate Sistema
+
+ADM -> Sistema : buscarUsuario(filtros)
+activate Sistema
+Sistema --> ADM : exibirResultados(listaFiltrada)
+deactivate Sistema
+
+== Suspensão de Conta ==
+
+ADM -> Sistema : suspenderConta(usuarioId, motivo)
+activate Sistema
+
+alt Suspensão realizada com sucesso
+  Sistema --> ADM : contaSuspensa(\n  "Usuário suspenso e notificado.")
+  Sistema ->> UA : notificarSuspensao(\n  "Sua conta foi suspensa.\nMotivo: " + motivo)
+else Usuário já suspenso
+  Sistema --> ADM : notificarErro(\n  "Conta já está suspensa.")
+else Tentativa de suspender admin
+  Sistema --> ADM : notificarErro(\n  "Não é possível suspender\numa conta de administrador.")
+end
+deactivate Sistema
+
+== Reativação de Conta ==
+
+ADM -> Sistema : reativarConta(usuarioId)
+activate Sistema
+
+alt Reativação bem-sucedida
+  Sistema --> ADM : contaReativada(\n  "Conta reativada com sucesso.")
+  Sistema ->> UA : notificarReativacao(\n  "Sua conta foi reativada!")
+else Conta não estava suspensa
+  Sistema --> ADM : notificarErro(\n  "Conta não está suspensa.")
+end
+deactivate Sistema
+
+@enduml

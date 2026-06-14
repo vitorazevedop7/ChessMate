@@ -1,0 +1,102 @@
+@startuml EST02-ciclo-vida-conta
+title Diagrama de Estados: Ciclo de Vida da Conta do Usuário\nChessMate - Plataforma de Xadrez Online
+
+skinparam backgroundColor #FAFAFA
+skinparam state {
+  BackgroundColor #EBF5FB
+  BorderColor #2980B9
+  ArrowColor #2C3E50
+  FontSize 13
+}
+skinparam note {
+  BackgroundColor #FFF9C4
+  BorderColor #F0C040
+}
+
+[*] --> PendenteConfirmacao : usuário preenche cadastro (UC-01) /\ntoken gerado, e-mail enviado\nstatus = 'PENDENTE_CONFIRMACAO'
+
+state PendenteConfirmacao {
+  PendenteConfirmacao : status = 'PENDENTE_CONFIRMACAO'
+  PendenteConfirmacao : token_confirmacao gerado
+  PendenteConfirmacao : login bloqueado
+  PendenteConfirmacao : expira_em = criado_em + 24h
+}
+
+PendenteConfirmacao --> Ativa : usuário clica link de confirmação (UC-01) /\ntoken validado\nstatus = 'ATIVA'\nativo = true
+
+PendenteConfirmacao --> Expirada : 24h sem confirmação /\njob automático expira token\nstatus = 'INATIVO'
+
+state Expirada {
+  Expirada : status = 'INATIVO'
+  Expirada : token inválido
+  Expirada : usuário pode reenviar e-mail
+}
+
+Expirada --> PendenteConfirmacao : usuário solicita reenvio\nde e-mail de confirmação /\nnovo token gerado
+
+state Ativa {
+  [*] --> LogadoForaDaSessao
+  LogadoForaDaSessao : ultimo_login = null ou antigo
+  LogadoForaDaSessao : sessao inativa
+  LogadoForaDaSessao --> EmSessao : login realizado (UC-02) /\nJWT gerado\nultimo_login = NOW()
+  EmSessao : JWT válido ativo
+  EmSessao : partidas e recursos acessíveis
+  EmSessao --> LogadoForaDaSessao : logout ou JWT expirado /\nsessão encerrada
+}
+
+Ativa --> Suspensa : administrador suspende conta (UC-17) /\nstatus = 'SUSPENSA'\nJWTs invalidados\ne-mail notificado
+
+state Suspensa {
+  Suspensa : status = 'SUSPENSA'
+  Suspensa : login bloqueado
+  Suspensa : partidas em andamento encerradas
+  Suspensa : motivo registrado em auditoria
+}
+
+Suspensa --> Ativa : administrador reativa conta (UC-17) /\nstatus = 'ATIVA'\ne-mail notificado
+
+Suspensa --> Banida : reincidência ou\nviolação grave /\nstatus = 'BANIDA'
+
+state Banida {
+  Banida : status = 'BANIDA'
+  Banida : login permanentemente bloqueado
+  Banida : dados preservados por 90 dias
+  Banida : sem possibilidade de reativação
+}
+
+Ativa --> SolicitouRecuperacao : usuário clica\n"Esqueci minha senha" (UC-03) /\ntoken de recuperação gerado
+
+state SolicitouRecuperacao {
+  SolicitouRecuperacao : token_recuperacao gerado
+  SolicitouRecuperacao : expira em 1 hora
+  SolicitouRecuperacao : login ainda possível
+}
+
+SolicitouRecuperacao --> Ativa : nova senha definida (UC-03) /\ntoken invalidado\nsenha_hash atualizada
+
+SolicitouRecuperacao --> Ativa : token expirado sem uso /\nnenhuma alteração
+
+Banida --> [*]
+
+note right of Suspensa
+  Guards:
+  when [motivo == 'primeira_violacao'] → pode ser reativada
+  when [motivo == 'reincidencia'] → encaminhada para Banida
+end note
+
+note left of Ativa
+  Ações permitidas no estado Ativa:
+  - Buscar e jogar partidas (UC-06, UC-07)
+  - Analisar histórico (UC-10, UC-11)
+  - Interagir socialmente (UC-14, UC-15)
+  - Convidar amigos (UC-09)
+end note
+
+note right of Banida
+  Dados preservados por 90 dias
+  para fins de auditoria e
+  conformidade com LGPD.
+  Após 90 dias: anonimização.
+end note
+
+@enduml

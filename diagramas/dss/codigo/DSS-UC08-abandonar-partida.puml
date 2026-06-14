@@ -1,0 +1,45 @@
+@startuml DSS-UC08-abandonar-partida
+title DSS - UC-08: Abandonar Partida\nChessMate - Plataforma de Xadrez Online (Visão de Sistema)
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #2C3E50
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #D5E8D4
+  LifeLineBorderColor #2980B9
+  LifeLineBackgroundColor #EBF5FB
+  ParticipantBorderColor #2980B9
+  ParticipantBackgroundColor #EBF5FB
+  BoxBackgroundColor #F2F3F4
+  BoxBorderColor #BDC3C7
+}
+
+note over Sistema
+  <<Sistema>>
+  ChessMate
+  (caixa preta)
+end note
+
+actor "Jogador" as U
+actor "Adversário" as A
+participant "Sistema\nChessMate" as Sistema
+
+U -> Sistema : solicitarAbandono()
+activate Sistema
+Sistema --> U : exibirConfirmacao(\n  "Tem certeza? Você perderá Elo.")
+deactivate Sistema
+
+U -> Sistema : confirmarAbandono()
+activate Sistema
+
+alt Partida em andamento
+  Sistema --> U : abandonoRegistrado(\n  "Derrota por abandono. -12 Elo")
+  Sistema ->> A : notificarAbandono(\n  "Adversário abandonou! +12 Elo")
+else Partida já finalizada
+  Sistema --> U : notificarErro(\n  "Partida já encerrada.")
+end
+deactivate Sistema
+
+@enduml

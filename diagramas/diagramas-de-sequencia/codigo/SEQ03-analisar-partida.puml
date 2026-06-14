@@ -1,0 +1,106 @@
+@startuml SEQ03-analisar-partida
+title UC-10: Analisar Partida\nChessMate - Plataforma de Xadrez Online
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #2C3E50
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #D5E8D4
+  LifeLineBorderColor #2980B9
+  LifeLineBackgroundColor #EBF5FB
+  ParticipantBorderColor #2980B9
+  ParticipantBackgroundColor #EBF5FB
+  BoxBackgroundColor #F2F3F4
+  BoxBorderColor #BDC3C7
+}
+
+actor "Jogador" as Jogador
+participant "Interface\nWeb" as UI
+participant "AnaliseController" as AnaliseCtrl
+participant "AnaliseService" as AnaliseSvc
+participant "PartidaRepository" as PartidaRepo
+participant "AnaliseRepository" as AnaliseRepo
+database "Banco de Dados" as BD
+participant "MotorAnalise\n(Stockfish)" as Stockfish
+
+== Solicitação de Análise ==
+
+Jogador -> UI : selecionarPartida(partidaId)\ne clicar "Analisar"
+activate UI
+
+UI -> AnaliseCtrl : POST /api/analises\n{ partidaId, profundidade: 20 }
+activate AnaliseCtrl
+
+AnaliseCtrl -> PartidaRepo : buscarPartidaComMovimentos(partidaId)
+activate PartidaRepo
+PartidaRepo -> BD : SELECT p.*, m.* FROM partidas p\nJOIN movimentos m ON m.partida_id = p.id\nWHERE p.id = ?
+activate BD
+BD --> PartidaRepo : partidaComMovimentos
+deactivate BD
+PartidaRepo --> AnaliseCtrl : partidaEncontrada
+deactivate PartidaRepo
+
+AnaliseCtrl -> AnaliseSvc : solicitarAnalise(\n  partida, profundidade)
+activate AnaliseSvc
+
+AnaliseSvc -> AnaliseRepo : buscarAnaliseExistente(partidaId)
+activate AnaliseRepo
+AnaliseRepo -> BD : SELECT * FROM analises\nWHERE partida_id = ?
+activate BD
+BD --> AnaliseRepo : analiseNaoEncontrada
+deactivate BD
+AnaliseRepo --> AnaliseSvc : semAnalisePrevia
+deactivate AnaliseRepo
+
+AnaliseSvc ->> Stockfish : analisarPartida(\n  pgn, profundidade: 20)
+activate Stockfish
+note right of Stockfish : Motor externo processa\ncada movimento e calcula\nmelhor lance alternativo
+Stockfish --> AnaliseSvc : resultadoAnalise(\n  movimentosAnalisados,\n  avaliacoes, erros)
+deactivate Stockfish
+
+AnaliseSvc -> AnaliseSvc : classificarMovimentos(resultados)
+activate AnaliseSvc
+note right of AnaliseSvc : Classifica cada lance:\nExcelente, Bom,\nImprecisão, Erro, Erro Crítico
+AnaliseSvc --> AnaliseSvc : movimentosClassificados
+deactivate AnaliseSvc
+
+AnaliseSvc -> AnaliseRepo : salvarAnalise(analise, movimentosAnalisados)
+activate AnaliseRepo
+AnaliseRepo -> BD : INSERT INTO analises (...)\nINSERT INTO movimentos_analisados (...)
+activate BD
+BD --> AnaliseRepo : analiseSalva(analiseId)
+deactivate BD
+AnaliseRepo --> AnaliseSvc : analisePersistida
+deactivate AnaliseRepo
+
+AnaliseSvc --> AnaliseCtrl : analiseCompleta(analiseId, resumo)
+deactivate AnaliseSvc
+
+AnaliseCtrl --> UI : HTTP 201 Created\n{ analiseId, totalErros,\n  melhorLance, avaliacao }
+deactivate AnaliseCtrl
+
+UI --> Jogador : exibirResultadoAnalise(\n  gráfico de avaliação,\n  erros críticos, sugestões)
+deactivate UI
+
+== Navegação Move a Move ==
+
+Jogador -> UI : clicarMovimento(ordem: 12)
+activate UI
+UI -> AnaliseCtrl : GET /api/analises/{id}/movimento/12
+activate AnaliseCtrl
+AnaliseCtrl -> AnaliseRepo : buscarMovimentoAnalisado(\n  analiseId, ordem: 12)
+activate AnaliseRepo
+AnaliseRepo -> BD : SELECT ma.* FROM movimentos_analisados ma\nWHERE analise_id = ? AND ordem = 12
+activate BD
+BD --> AnaliseRepo : movimentoAnalisado
+deactivate BD
+AnaliseRepo --> AnaliseCtrl : detalheMovimento
+deactivate AnaliseRepo
+AnaliseCtrl --> UI : HTTP 200 OK\n{ classificacao: ERRO,\n  melhorAlternativa: Nf3 }
+deactivate AnaliseCtrl
+UI --> Jogador : destacarErro(\n  "Erro! Melhor lance: Nf3")
+deactivate UI
+
+@enduml

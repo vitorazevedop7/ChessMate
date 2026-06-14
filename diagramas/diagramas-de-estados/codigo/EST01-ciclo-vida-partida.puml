@@ -1,0 +1,103 @@
+@startuml EST01-ciclo-vida-partida
+title Diagrama de Estados: Ciclo de Vida da Partida\nChessMate - Plataforma de Xadrez Online
+
+skinparam backgroundColor #FAFAFA
+skinparam state {
+  BackgroundColor #EBF5FB
+  BorderColor #2980B9
+  ArrowColor #2C3E50
+  FontSize 13
+}
+skinparam note {
+  BackgroundColor #FFF9C4
+  BorderColor #F0C040
+}
+
+[*] --> Aguardando : matchmaking encontra par /\npartida criada no banco
+
+state Aguardando {
+  [*] --> BuscandoAdversario
+  BuscandoAdversario : status = 'AGUARDANDO'
+  BuscandoAdversario : jogadores = 0 ou 1
+  BuscandoAdversario : resultado = 'INDEFINIDO'
+}
+
+Aguardando --> EmAndamento : ambos jogadores conectados\nao tabuleiro (UC-07) /\nstatus = 'EM_ANDAMENTO'\ndata_inicio = NOW()
+
+state EmAndamento {
+  [*] --> TurnoBrancas
+  TurnoBrancas : vez das peças brancas
+  TurnoBrancas : tempo_brancas decrementando
+  TurnoBrancas --> TurnoNegras : movimento registrado (UC-07) /\nordem++, timestamp salvo
+  TurnoNegras : vez das peças negras
+  TurnoNegras : tempo_negras decrementando
+  TurnoNegras --> TurnoBrancas : movimento registrado (UC-07) /\nordem++, timestamp salvo
+}
+
+EmAndamento --> Finalizada : xeque-mate detectado /\nresultado = VITORIA_BRANCAS\nou VITORIA_NEGRAS\ndata_fim = NOW()
+
+EmAndamento --> Finalizada : empate por acordo\nou insuficiência material /\nresultado = EMPATE\ndata_fim = NOW()
+
+EmAndamento --> Finalizada : tempo esgotado /\nresultado = VITORIA_ADVERSARIO\ndata_fim = NOW()
+
+EmAndamento --> Abandonada : jogador clica abandonar\ne confirma (UC-08) /\nstatus = 'ABANDONADA'\nresultado = VITORIA_ADVERSARIO
+
+state Finalizada {
+  Finalizada : status = 'FINALIZADA'
+  Finalizada : resultado definido
+  Finalizada : data_fim = timestamp
+  Finalizada : rating_depois calculado
+}
+
+state Abandonada {
+  Abandonada : status = 'ABANDONADA'
+  Abandonada : resultado = VITORIA_ADVERSARIO
+  Abandonada : data_fim = timestamp
+  Abandonada : penalidade de Elo aplicada
+}
+
+Aguardando --> Cancelada : nenhum adversário encontrado\nem 5 minutos /\nstatus = 'CANCELADA'
+
+state Cancelada {
+  Cancelada : status = 'CANCELADA'
+  Cancelada : resultado = 'INDEFINIDO'
+  Cancelada : sem alteração de Elo
+}
+
+Finalizada --> AnalisandoPartida : jogador solicita análise (UC-10) /\nmotor Stockfish acionado
+
+state AnalisandoPartida {
+  AnalisandoPartida : analise.status = 'EM_PROCESSAMENTO'
+  AnalisandoPartida : engine = 'Stockfish'
+  AnalisandoPartida : profundidade = 20
+}
+
+AnalisandoPartida --> Analisada : análise concluída /\nanalise.status = 'CONCLUIDA'\nmovimentos_analisados salvos
+
+state Analisada {
+  Analisada : analise.status = 'CONCLUIDA'
+  Analisada : erros e sugestões disponíveis
+  Analisada : avaliacao calculada
+}
+
+Finalizada --> [*]
+Abandonada --> [*]
+Cancelada --> [*]
+Analisada --> [*]
+
+note right of EmAndamento
+  Guards:
+  when [tempo == 0] → Finalizada (derrota por tempo)
+  when [xeque-mate] → Finalizada (vitória)
+  when [empate por acordo] → Finalizada (empate)
+  when [abandonar confirmado] → Abandonada
+end note
+
+note right of Analisada
+  Exportação PGN disponível
+  após análise concluída (UC-12).
+  Histórico permanece acessível
+  indefinidamente (UC-11).
+end note
+
+@enduml

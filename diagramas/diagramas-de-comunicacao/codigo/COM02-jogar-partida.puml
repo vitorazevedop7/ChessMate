@@ -1,0 +1,66 @@
+@startuml COM02-jogar-partida
+title Diagrama de Comunicação: Jogar Partida\nChessMate - Plataforma de Xadrez Online
+
+skinparam backgroundColor #FAFAFA
+skinparam participant {
+  BorderColor #2980B9
+  BackgroundColor #EBF5FB
+}
+skinparam ArrowColor #2C3E50
+skinparam ActorBorderColor #2C3E50
+skinparam ActorBackgroundColor #D5E8D4
+
+participant "Jogador" as JOG
+participant "PartidaController" as PC
+participant "PartidaService" as PS
+participant "MovimentoService" as MS
+participant "MovimentoRepository" as MR
+participant "PartidaRepository" as PR
+participant "RatingService" as RS
+participant "WebSocketService" as WS
+
+note over JOG : 1. Partida em andamento.\nÉ o turno do Jogador.
+
+JOG -> PC : 2. POST /api/partidas/{id}/movimento\n{origem: e2, destino: e4}
+PC -> PS : 3. validarTurno(partidaId, usuarioId)
+PS --> PC : 4. turnoValido
+PC -> MS : 5. registrarMovimento(partidaId, usuarioId, origem, destino)
+MS -> MS : 6. validarMovimento(origem, destino)
+MS -> MR : 7. salvarMovimento(movimento)
+MR --> MS : 8. movimentoSalvo(movId)
+MS -> PS : 9. verificarFimDeJogo(partidaId)
+PS --> MS : 10. jogoEmAndamento
+MS --> PC : 11. movimentoRegistrado(notacaoPGN)
+PC ->> WS : 12. [async] transmitirMovimento(partidaId, movimento)
+PC --> JOG : 13. HTTP 200 OK {movimentoId, notacaoPGN, turnoAtual}
+
+note over JOG : 14. Jogador realiza\nmovimento de xeque-mate.
+
+JOG -> PC : 15. POST /api/partidas/{id}/movimento\n{origem, destino: xeque-mate}
+PC -> MS : 16. registrarMovimento(...)
+MS -> PS : 17. verificarFimDeJogo(partidaId)
+PS -> PR : 18. finalizarPartida(partidaId, VITORIA_BRANCAS)
+PR --> PS : 19. partidaFinalizada
+PS -> RS : 20. recalcularElo(vencedorId, perdedorId)
+RS -> PR : 21. atualizarRatings(jogador1, jogador2)
+PR --> RS : 22. ratingsAtualizados
+RS --> PS : 23. eloRecalculado
+PS --> MS : 24. jogoFinalizado(resultado)
+MS --> PC : 25. jogoFinalizado(resultado)
+PC ->> WS : 26. [async] notificarFimDeJogo(partidaId, VITORIA_BRANCAS)
+PC --> JOG : 27. HTTP 200 OK {resultado, ratingNovo: +15}
+
+note right of MS
+  Validação das regras do xadrez:
+  movimento legal da peça,
+  verificação de xeque e xeque-mate.
+end note
+
+note right of RS
+  Fórmula Elo com K-factor
+  variável por categoria de rating.
+  K=32 (< 2000), K=24 (2000-2400),
+  K=16 (> 2400).
+end note
+
+@enduml

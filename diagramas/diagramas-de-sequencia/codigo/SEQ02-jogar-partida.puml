@@ -1,0 +1,132 @@
+@startuml SEQ02-jogar-partida
+title UC-07: Jogar Partida\nChessMate - Plataforma de Xadrez Online
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #2C3E50
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #D5E8D4
+  LifeLineBorderColor #2980B9
+  LifeLineBackgroundColor #EBF5FB
+  ParticipantBorderColor #2980B9
+  ParticipantBackgroundColor #EBF5FB
+  BoxBackgroundColor #F2F3F4
+  BoxBorderColor #BDC3C7
+}
+
+actor "Jogador" as Jogador
+actor "Adversário" as Adversario
+participant "Interface\nWeb" as UI
+participant "PartidaController" as PartidaCtrl
+participant "PartidaService" as PartidaSvc
+participant "MovimentoService" as MovSvc
+participant "MovimentoRepository" as MovRepo
+participant "PartidaRepository" as PartidaRepo
+database "Banco de Dados" as BD
+participant "WebSocketService" as WSSvc
+
+== Início da Partida ==
+
+Jogador -> UI : moverPeca(\n  origem: e2, destino: e4)
+activate UI
+
+UI -> PartidaCtrl : POST /api/partidas/{id}/movimento\n{ origem, destino, pecaMovida }
+activate PartidaCtrl
+
+PartidaCtrl -> PartidaSvc : validarTurno(partidaId, usuarioId)
+activate PartidaSvc
+PartidaSvc --> PartidaCtrl : turnoValido
+deactivate PartidaSvc
+
+PartidaCtrl -> MovSvc : registrarMovimento(\n  partidaId, usuarioId, origem, destino)
+activate MovSvc
+
+MovSvc -> MovSvc : validarMovimento(origem, destino)
+activate MovSvc
+note right of MovSvc : Valida regras do xadrez:\nmovimento legal da peça
+MovSvc --> MovSvc : movimentoValido
+deactivate MovSvc
+
+MovSvc -> MovRepo : salvarMovimento(movimento)
+activate MovRepo
+MovRepo -> BD : INSERT INTO movimentos\n(partida_id, usuario_id,\nnotacao_pgn, ordem, timestamp)
+activate BD
+BD --> MovRepo : movimentoSalvo(movId)
+deactivate BD
+MovRepo --> MovSvc : movimentoRegistrado
+deactivate MovRepo
+
+MovSvc -> PartidaSvc : verificarFimDeJogo(partidaId)
+activate PartidaSvc
+PartidaSvc --> MovSvc : jogoEmAndamento
+deactivate PartidaSvc
+
+MovSvc --> PartidaCtrl : movimentoRegistrado(notacaoPGN)
+deactivate MovSvc
+
+PartidaCtrl ->> WSSvc : transmitirMovimento(\n  partidaId, movimento)
+activate WSSvc
+note right of WSSvc : Broadcast assíncrono\npara todos na partida
+WSSvc --> PartidaCtrl : transmitido
+deactivate WSSvc
+
+PartidaCtrl --> UI : HTTP 200 OK\n{ movimentoId, notacaoPGN, turnoAtual }
+deactivate PartidaCtrl
+
+UI --> Jogador : atualizarTabuleiro(novaposicao)
+deactivate UI
+
+WSSvc -> UI : eventoMovimentoAdversario(movimento)
+activate UI
+UI --> Adversario : atualizarTabuleiro(\n  movimento do adversário)
+deactivate UI
+
+== Fim de Jogo ==
+
+Jogador -> UI : moverPeca(xeque-mate)
+activate UI
+UI -> PartidaCtrl : POST /api/partidas/{id}/movimento\n{ origem, destino }
+activate PartidaCtrl
+PartidaCtrl -> MovSvc : registrarMovimento(...)
+activate MovSvc
+MovSvc -> PartidaSvc : verificarFimDeJogo(partidaId)
+activate PartidaSvc
+
+PartidaSvc -> PartidaRepo : finalizarPartida(\n  partidaId, VITORIA_BRANCAS)
+activate PartidaRepo
+PartidaRepo -> BD : UPDATE partidas SET status = 'FINALIZADA',\nresultado = 'VITORIA_BRANCAS',\ndata_fim = NOW()
+activate BD
+BD --> PartidaRepo : atualizado
+deactivate BD
+PartidaRepo --> PartidaSvc : partidaFinalizada
+deactivate PartidaRepo
+
+PartidaSvc -> PartidaRepo : atualizarRatingElo(\n  jogador1Id, jogador2Id)
+activate PartidaRepo
+PartidaRepo -> BD : UPDATE partida_jogadores\nSET rating_depois = ?\nWHERE partida_id = ?
+activate BD
+BD --> PartidaRepo : atualizado
+deactivate BD
+PartidaRepo --> PartidaSvc : ratingAtualizado
+deactivate PartidaRepo
+
+PartidaSvc --> MovSvc : jogoFinalizado(resultado)
+deactivate PartidaSvc
+MovSvc --> PartidaCtrl : jogoFinalizado(resultado)
+deactivate MovSvc
+PartidaCtrl ->> WSSvc : notificarFimDeJogo(\n  partidaId, resultado)
+activate WSSvc
+WSSvc --> PartidaCtrl : notificado
+deactivate WSSvc
+PartidaCtrl --> UI : HTTP 200 OK\n{ resultado, ratingNovo }
+deactivate PartidaCtrl
+UI --> Jogador : exibirResultado(\n  "Você venceu! +15 Elo")
+deactivate UI
+WSSvc -> UI : eventoFimDeJogo(VITORIA_BRANCAS)
+activate UI
+UI --> Adversario : exibirResultado("Você perdeu. -15 Elo")
+deactivate UI
+
+@enduml

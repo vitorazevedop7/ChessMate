@@ -1,0 +1,44 @@
+@startuml DSS-UC06-buscar-partida
+title DSS - UC-06: Buscar Partida (Matchmaking)\nChessMate - Plataforma de Xadrez Online (Visão de Sistema)
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #2C3E50
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #D5E8D4
+  LifeLineBorderColor #2980B9
+  LifeLineBackgroundColor #EBF5FB
+  ParticipantBorderColor #2980B9
+  ParticipantBackgroundColor #EBF5FB
+  BoxBackgroundColor #F2F3F4
+  BoxBorderColor #BDC3C7
+}
+
+note over Sistema
+  <<Sistema>>
+  ChessMate
+  (caixa preta)
+end note
+
+actor "Jogador" as U
+participant "Sistema\nChessMate" as Sistema
+
+U -> Sistema : selecionarModalidade(BLITZ)
+activate Sistema
+Sistema --> U : exibirOpcoesMatchmaking(\n  modalidades, ratingAtual)
+deactivate Sistema
+
+U -> Sistema : buscarPartida(modalidade)
+activate Sistema
+
+alt Adversário encontrado
+  Sistema --> U : partidaEncontrada(\n  adversario, cor, tempoControle)
+else Nenhum adversário disponível
+  Sistema --> U : aguardandoNaFila(\n  "Procurando adversário...")
+  Sistema ->> U : notificarAdversarioEncontrado(\n  adversario, cor)
+end
+deactivate Sistema
+
+@enduml

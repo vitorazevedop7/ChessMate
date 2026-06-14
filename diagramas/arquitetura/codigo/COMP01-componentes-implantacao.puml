@@ -1,0 +1,171 @@
+@startuml COMP01-componentes-implantacao
+title Diagrama de Componentes e Implantação\nChessMate - Plataforma de Xadrez Online
+
+skinparam backgroundColor #FAFAFA
+skinparam component {
+  BackgroundColor #EBF5FB
+  BorderColor #2980B9
+  ArrowColor #2C3E50
+  FontSize 12
+}
+skinparam node {
+  BackgroundColor #D5E8D4
+  BorderColor #27AE60
+  FontSize 12
+}
+skinparam database {
+  BackgroundColor #FAD7A0
+  BorderColor #E67E22
+}
+skinparam cloud {
+  BackgroundColor #F2D7EE
+  BorderColor #8E44AD
+}
+skinparam note {
+  BackgroundColor #FFF9C4
+  BorderColor #F0C040
+}
+
+' =========== CLIENTES ===========
+node "Dispositivos Cliente" {
+  [App Web\n(React + Vite)] as AppWeb
+}
+
+' =========== CDN ===========
+cloud "CDN / Edge\n(CloudFront)" as CDN {
+  [Assets Estáticos\n(HTML, JS, CSS,\nFotos de Perfil)] as Assets
+}
+
+AppWeb --> CDN : HTTPS
+
+' =========== API GATEWAY ===========
+node "API Gateway\n(AWS API Gateway)" as APIGW {
+  [Roteamento\ne Rate Limiting] as Router
+  [Autenticação\nJWT Middleware] as JWTMiddleware
+}
+
+CDN --> APIGW : HTTPS / REST
+
+' =========== BACKEND ===========
+node "Cluster de Aplicação\n(AWS ECS - Auto Scaling)" as BackendCluster {
+
+  node "Instância 1" {
+    [AuthService\n(Spring Boot)] as AuthSvc
+    [PartidaService\n(Spring Boot)] as PartidaSvc
+  }
+
+  node "Instância 2" {
+    [MatchmakingService\n(Spring Boot)] as MatchSvc
+    [MovimentoService\n(Spring Boot)] as MovSvc
+  }
+
+  node "Instância 3" {
+    [AnaliseService\n(Spring Boot)] as AnaliseSvc
+    [SocialService\n(Spring Boot)] as SocialSvc
+  }
+
+  node "Instância 4" {
+    [RankingService\n(Spring Boot)] as RankSvc
+    [AdminService\n(Spring Boot)] as AdminSvc
+  }
+
+}
+
+APIGW --> BackendCluster : HTTP interno
+
+' =========== WEBSOCKET ===========
+node "WebSocket Server\n(Spring WebSocket)" as WSS {
+  [Servidor WS\n(STOMP/SockJS)] as WSSvc
+}
+
+AppWeb --> WSS : WSS
+PartidaSvc --> WSS : emite movimentos
+MatchSvc --> WSS : notifica paridade
+
+' =========== WORKER ===========
+node "Worker de Análise\n(Spring Batch - AWS ECS)" as WorkerNode {
+  [AnaliseWorker\n(Spring Batch)] as Worker
+}
+
+AnaliseSvc --> WorkerNode : publica job\nde análise
+
+' =========== BANCO DE DADOS ===========
+node "Banco de Dados\n(AWS RDS - PostgreSQL)" {
+  database "DB Principal\n(Multi-AZ)" as DBMain
+  database "DB Réplica\n(Leitura)" as DBReplica
+}
+
+BackendCluster --> DBMain    : TCP/IP (escrita)
+BackendCluster --> DBReplica : TCP/IP (leitura)
+WorkerNode --> DBMain        : TCP/IP (persiste análise)
+DBMain --> DBReplica         : replicação
+
+' =========== CACHE ===========
+node "Cache\n(AWS ElastiCache - Redis)" {
+  database "Redis\n(Sessões JWT, Rankings,\nFila Matchmaking)" as Redis
+}
+
+BackendCluster --> Redis : TCP/IP
+MatchSvc --> Redis       : leitura/escrita\nfila matchmaking
+
+' =========== FILAS ===========
+node "Mensageria\n(AWS SQS)" {
+  [Fila Análises] as FilaAnalise
+  [Fila E-mails] as FilaEmail
+  [Fila Notificações] as FilaNotif
+}
+
+AnaliseSvc ->> FilaAnalise  : publica job
+FilaAnalise --> Worker      : consome
+AuthSvc ->> FilaEmail       : publica
+FilaEmail --> [EmailWorker] : consome
+PartidaSvc ->> FilaNotif    : publica
+FilaNotif --> [NotifWorker] : consome
+
+' =========== STORAGE ===========
+cloud "Object Storage\n(AWS S3)" as S3 {
+  [Fotos de Perfil] as FotoPerfil
+  [Exportações PGN] as ExportPGN
+  [Relatórios PDF] as RelPDF
+}
+
+BackendCluster --> S3 : HTTPS
+CDN --> S3            : origin pull
+
+' =========== SISTEMAS EXTERNOS ===========
+cloud "Sistema de Matchmaking\n(Externo)" as MMExt {
+  [API Matchmaking] as MMAPI
+}
+
+cloud "Motor de Análise\n(Stockfish)" as STKExt {
+  [Stockfish Engine] as STKEngine
+}
+
+cloud "E-mail\n(SendGrid)" as SendGrid {
+  [API E-mail] as EmailAPI
+}
+
+MatchSvc --> MMExt    : HTTPS / REST
+Worker --> STKExt     : TCP/IP (PGN)
+[EmailWorker] --> SendGrid : HTTPS
+
+note bottom of BackendCluster
+  Auto Scaling: 2 a 10 instâncias
+  baseado em CPU e requisições/s.
+  Health check a cada 30s.
+end note
+
+note right of DBMain
+  PostgreSQL 15
+  Multi-AZ para alta disponibilidade.
+  Backup diário automatizado.
+  Read replica para relatórios e rankings.
+end note
+
+note right of Redis
+  TTL de 1h para sessões JWT.
+  Fila de matchmaking com
+  expiração de 5 minutos.
+end note
+
+@enduml

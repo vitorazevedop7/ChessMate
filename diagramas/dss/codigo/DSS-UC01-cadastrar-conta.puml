@@ -1,0 +1,51 @@
+@startuml DSS-UC01-cadastrar-conta
+title DSS - UC-01: Cadastrar Conta\nChessMate - Plataforma de Xadrez Online (Visão de Sistema)
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #2C3E50
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #D5E8D4
+  LifeLineBorderColor #2980B9
+  LifeLineBackgroundColor #EBF5FB
+  ParticipantBorderColor #2980B9
+  ParticipantBackgroundColor #EBF5FB
+  BoxBackgroundColor #F2F3F4
+  BoxBorderColor #BDC3C7
+}
+
+note over Sistema
+  <<Sistema>>
+  ChessMate
+  (caixa preta)
+end note
+
+actor "Jogador" as U
+participant "Sistema\nChessMate" as Sistema
+
+U -> Sistema : preencherFormulario(\n  nome, email, senha, dataNasc)
+activate Sistema
+
+alt E-mail disponível
+  Sistema --> U : contaCriada(\n  "Cadastro realizado! Verifique seu e-mail.")
+  Sistema ->> U : enviarEmailConfirmacao(token)
+else E-mail já cadastrado
+  Sistema --> U : notificarErro(\n  "E-mail já está em uso.")
+end
+deactivate Sistema
+
+== Confirmação de E-mail ==
+
+U -> Sistema : confirmarEmail(token)
+activate Sistema
+
+alt Token válido
+  Sistema --> U : contaAtivada(\n  "Conta ativada com sucesso!")
+else Token expirado
+  Sistema --> U : notificarErro(\n  "Link expirado. Solicite novo e-mail.")
+end
+deactivate Sistema
+
+@enduml

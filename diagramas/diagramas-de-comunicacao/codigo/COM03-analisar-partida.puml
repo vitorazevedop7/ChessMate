@@ -1,0 +1,53 @@
+@startuml COM03-analisar-partida
+title Diagrama de Comunicação: Analisar Partida\nChessMate - Plataforma de Xadrez Online
+
+skinparam backgroundColor #FAFAFA
+skinparam participant {
+  BorderColor #2980B9
+  BackgroundColor #EBF5FB
+}
+skinparam ArrowColor #2C3E50
+skinparam ActorBorderColor #2C3E50
+skinparam ActorBackgroundColor #D5E8D4
+
+participant "Jogador" as JOG
+participant "AnaliseController" as AC
+participant "AnaliseService" as AS
+participant "PartidaRepository" as PR
+participant "AnaliseRepository" as AR
+participant "MotorAnalise\n(Stockfish)" as STK
+
+note over JOG : 1. Jogador acessa histórico\ne seleciona partida finalizada.
+
+JOG -> AC : 2. POST /api/analises\n{partidaId, profundidade: 20}
+AC -> PR : 3. buscarPartidaComMovimentos(partidaId)
+PR --> AC : 4. partidaComMovimentos(pgn)
+AC -> AS : 5. solicitarAnalise(partida, profundidade)
+AS -> AR : 6. buscarAnaliseExistente(partidaId)
+AR --> AS : 7. analiseNaoEncontrada
+AS -> STK : 8. analisarPartida(pgn, profundidade: 20)
+STK --> AS : 9. resultadoAnalise(movimentosAnalisados[], avaliacoes[], melhorLance)
+AS -> AS : 10. classificarMovimentos(resultados)
+AS -> AR : 11. salvarAnalise(analise, movimentosAnalisados[])
+AR --> AS : 12. analisePersistida(analiseId)
+AS --> AC : 13. analiseCompleta(analiseId, resumo)
+AC --> JOG : 14. HTTP 201 Created\n{analiseId, totalErros, melhorLance, avaliacao}
+
+note right of STK
+  Motor Stockfish (externo).
+  Analisa cada posição em
+  profundidade 20 half-moves.
+  Retorna melhor lance e
+  avaliação em centipawns.
+end note
+
+note right of AS
+  Classificação por variação de avaliação:
+  0-20cp  → Excelente
+  21-50cp → Bom
+  51-100cp → Imprecisão
+  101-200cp → Erro
+  > 200cp → Erro Crítico
+end note
+
+@enduml

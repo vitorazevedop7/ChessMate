@@ -1,0 +1,52 @@
+@startuml DSS-UC10-analisar-partida
+title DSS - UC-10: Analisar Partida\nChessMate - Plataforma de Xadrez Online (Visão de Sistema)
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+  ArrowColor #2C3E50
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #D5E8D4
+  LifeLineBorderColor #2980B9
+  LifeLineBackgroundColor #EBF5FB
+  ParticipantBorderColor #2980B9
+  ParticipantBackgroundColor #EBF5FB
+  BoxBackgroundColor #F2F3F4
+  BoxBorderColor #BDC3C7
+}
+
+note over Sistema
+  <<Sistema>>
+  ChessMate
+  (caixa preta)
+end note
+
+actor "Jogador" as U
+participant "Sistema\nChessMate" as Sistema
+
+U -> Sistema : selecionarPartida(partidaId)
+activate Sistema
+Sistema --> U : exibirDetalhesPartida(\n  movimentos, resultado, adversario)
+deactivate Sistema
+
+U -> Sistema : solicitarAnalise(partidaId, profundidade)
+activate Sistema
+
+alt Análise concluída com sucesso
+  Sistema --> U : exibirResultadoAnalise(\n  totalErros, melhorLance, graficoAvaliacao)
+else Partida já analisada anteriormente
+  Sistema --> U : exibirAnaliseExistente(\n  resultadoAnterior)
+else Erro no motor de análise
+  Sistema --> U : notificarErro(\n  "Análise indisponível. Tente novamente.")
+end
+deactivate Sistema
+
+== Navegação Move a Move ==
+
+U -> Sistema : selecionarMovimento(ordem)
+activate Sistema
+Sistema --> U : exibirDetalheMovimento(\n  classificacao, melhorAlternativa,\n  avaliacaoAntes, avaliacaoDepois)
+deactivate Sistema
+
+@enduml
