@@ -33,18 +33,14 @@ node "Dispositivos Cliente" {
 
 ' =========== CDN ===========
 cloud "CDN / Edge\n(CloudFront)" as CDN {
-  [Assets Estáticos\n(HTML, JS, CSS,\nFotos de Perfil)] as Assets
+  [Assets Estáticos\n(HTML, JS, CSS)] as Assets
 }
-
-AppWeb --> CDN : HTTPS
 
 ' =========== API GATEWAY ===========
 node "API Gateway\n(AWS API Gateway)" as APIGW {
   [Roteamento\ne Rate Limiting] as Router
   [Autenticação\nJWT Middleware] as JWTMiddleware
 }
-
-CDN --> APIGW : HTTPS / REST
 
 ' =========== BACKEND ===========
 node "Cluster de Aplicação\n(AWS ECS - Auto Scaling)" as BackendCluster {
@@ -71,23 +67,15 @@ node "Cluster de Aplicação\n(AWS ECS - Auto Scaling)" as BackendCluster {
 
 }
 
-APIGW --> BackendCluster : HTTP interno
-
 ' =========== WEBSOCKET ===========
 node "WebSocket Server\n(Spring WebSocket)" as WSS {
   [Servidor WS\n(STOMP/SockJS)] as WSSvc
 }
 
-AppWeb --> WSS : WSS
-PartidaSvc --> WSS : emite movimentos
-MatchSvc --> WSS : notifica paridade
-
 ' =========== WORKER ===========
 node "Worker de Análise\n(Spring Batch - AWS ECS)" as WorkerNode {
   [AnaliseWorker\n(Spring Batch)] as Worker
 }
-
-AnaliseSvc --> WorkerNode : publica job\nde análise
 
 ' =========== BANCO DE DADOS ===========
 node "Banco de Dados\n(AWS RDS - PostgreSQL)" {
@@ -95,18 +83,10 @@ node "Banco de Dados\n(AWS RDS - PostgreSQL)" {
   database "DB Réplica\n(Leitura)" as DBReplica
 }
 
-BackendCluster --> DBMain    : TCP/IP (escrita)
-BackendCluster --> DBReplica : TCP/IP (leitura)
-WorkerNode --> DBMain        : TCP/IP (persiste análise)
-DBMain --> DBReplica         : replicação
-
 ' =========== CACHE ===========
 node "Cache\n(AWS ElastiCache - Redis)" {
   database "Redis\n(Sessões JWT, Rankings,\nFila Matchmaking)" as Redis
 }
-
-BackendCluster --> Redis : TCP/IP
-MatchSvc --> Redis       : leitura/escrita\nfila matchmaking
 
 ' =========== FILAS ===========
 node "Mensageria\n(AWS SQS)" {
@@ -115,22 +95,12 @@ node "Mensageria\n(AWS SQS)" {
   [Fila Notificações] as FilaNotif
 }
 
-AnaliseSvc ->> FilaAnalise  : publica job
-FilaAnalise --> Worker      : consome
-AuthSvc ->> FilaEmail       : publica
-FilaEmail --> [EmailWorker] : consome
-PartidaSvc ->> FilaNotif    : publica
-FilaNotif --> [NotifWorker] : consome
-
 ' =========== STORAGE ===========
 cloud "Object Storage\n(AWS S3)" as S3 {
   [Fotos de Perfil] as FotoPerfil
   [Exportações PGN] as ExportPGN
   [Relatórios PDF] as RelPDF
 }
-
-BackendCluster --> S3 : HTTPS
-CDN --> S3            : origin pull
 
 ' =========== SISTEMAS EXTERNOS ===========
 cloud "Sistema de Matchmaking\n(Externo)" as MMExt {
@@ -145,9 +115,63 @@ cloud "E-mail\n(SendGrid)" as SendGrid {
   [API E-mail] as EmailAPI
 }
 
-MatchSvc --> MMExt    : HTTPS / REST
-Worker --> STKExt     : TCP/IP (PGN)
-[EmailWorker] --> SendGrid : HTTPS
+' =========== INTERFACES FORNECIDAS (lollipop o--) ===========
+AppWeb       -  ()  "IWebUI"
+CDN          -  ()  "IAssets"
+APIGW        -  ()  "IREST"
+AuthSvc      -  ()  "IAuth"
+PartidaSvc   -  ()  "IPartida"
+MatchSvc     -  ()  "IMatchmaking"
+AnaliseSvc   -  ()  "IAnalise"
+WSSvc        -  ()  "IWebSocket"
+DBMain       -  ()  "IPersistencia"
+DBReplica    -  ()  "ILeitura"
+Redis        -  ()  "ICache"
+FilaAnalise  -  ()  "IFilaAnalise"
+FilaEmail    -  ()  "IFilaEmail"
+FilaNotif    -  ()  "IFilaNotif"
+MMAPI        -  ()  "IMatchmakingExt"
+STKEngine    -  ()  "IStockfish"
+EmailAPI     -  ()  "IEmail"
+
+' =========== INTERFACES REQUERIDAS (socket --() ) ===========
+' Cliente consome CDN e Gateway
+AppWeb       --()  CDN    : requer IAssets
+AppWeb       --()  APIGW  : requer IREST
+AppWeb       --()  WSS    : requer IWebSocket
+
+' Gateway consome Backend
+APIGW        --()  BackendCluster : requer IServicos
+
+' Backend consome infraestrutura
+BackendCluster --()  DBMain    : requer IPersistencia
+BackendCluster --()  DBReplica : requer ILeitura
+BackendCluster --()  Redis     : requer ICache
+BackendCluster --()  S3        : requer IStorage
+
+' Backend consome filas
+AnaliseSvc   --()  FilaAnalise : requer IFilaAnalise
+AuthSvc      --()  FilaEmail   : requer IFilaEmail
+PartidaSvc   --()  FilaNotif   : requer IFilaNotif
+
+' Backend consome WebSocket
+PartidaSvc   --()  WSSvc : requer IWebSocket
+MatchSvc     --()  WSSvc : requer IWebSocket
+
+' Worker consome fila e sistemas externos
+Worker       --()  FilaAnalise : requer IFilaAnalise
+Worker       --()  STKExt      : requer IStockfish
+Worker       --()  DBMain      : requer IPersistencia
+
+' Backend consome sistemas externos
+MatchSvc     --()  MMExt    : requer IMatchmakingExt
+[EmailWorker] --() SendGrid : requer IEmail
+
+' CDN consome S3
+CDN          --()  S3 : requer IStorage
+
+' Replicação
+DBMain       --()  DBReplica : requer IReplicacao
 
 note bottom of BackendCluster
   Auto Scaling: 2 a 10 instâncias
